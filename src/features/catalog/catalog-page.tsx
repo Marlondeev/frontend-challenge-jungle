@@ -80,18 +80,20 @@ function Filters({
         Todas{" "}
         <span>{Object.values(categories).reduce((a, b) => a + b, 0)}</span>
       </button>
-      {Object.entries(categories).map(([name, count]) => (
-        <button
-          key={name}
-          className={search.category === name ? "selected" : ""}
-          onClick={() =>
-            change({ category: search.category === name ? undefined : name })
-          }
-        >
-          {name}
-          <span>({count})</span>
-        </button>
-      ))}
+      {Object.entries(categories)
+        .sort(([left], [right]) => left.localeCompare(right, "pt-BR"))
+        .map(([name, count]) => (
+          <button
+            key={name}
+            className={search.category === name ? "selected" : ""}
+            onClick={() =>
+              change({ category: search.category === name ? undefined : name })
+            }
+          >
+            {name}
+            <span>({count})</span>
+          </button>
+        ))}
       <PriceRangeFilter
         key={priceReset}
         minimum={search.min}
