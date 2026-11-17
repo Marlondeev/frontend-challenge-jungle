@@ -9,6 +9,7 @@ import {
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
+import type { User } from "@/domain/types";
 import { useAuth } from "@/lib/auth";
 import { errorMessage, fieldErrors } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,30 @@ const CartBackground = lazy(() =>
   })),
 );
 
-export function AuthPage({ mode }: { mode: "login" | "register" }) {
+type AuthMode = "login" | "register";
+
+interface AuthDialogProps {
+  onClose(): void;
+  onAuthenticated(user: User): void;
+  onCloseAutoFocus?(event: Event): void;
+}
+
+interface AuthDialogContext extends AuthDialogProps {
+  onModeChange(mode: AuthMode): void;
+}
+
+export function AuthDialog(props: AuthDialogProps) {
+  const [mode, setMode] = useState<AuthMode>("login");
+  return <AuthPage mode={mode} dialog={{ ...props, onModeChange: setMode }} />;
+}
+
+export function AuthPage({
+  mode,
+  dialog,
+}: {
+  mode: AuthMode;
+  dialog?: AuthDialogContext;
+}) {
   const auth = useAuth();
   const navigate = useNavigate();
   const search = useSearch({ strict: false }) as { redirect?: string };
@@ -89,18 +113,19 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
     submission.current = attempt;
     setPending(true);
     try {
-      if (mode === "login")
-        await auth.login(
-          { email: values.email.trim(), password: values.password },
-          attempt.signal,
-        );
-      else
-        await auth.register(
-          { ...values, email: values.email.trim() },
-          attempt.signal,
-        );
+      const user =
+        mode === "login"
+          ? await auth.login(
+              { email: values.email.trim(), password: values.password },
+              attempt.signal,
+            )
+          : await auth.register(
+              { ...values, email: values.email.trim() },
+              attempt.signal,
+            );
       if (attempt.signal.aborted || submission.current !== attempt) return;
-      await navigate({ to: redirect });
+      if (dialog) dialog.onAuthenticated(user);
+      else await navigate({ to: redirect });
     } catch (error) {
       if (attempt.signal.aborted || submission.current !== attempt) return;
       setErrors(fieldErrors(error));
@@ -116,21 +141,43 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
     <>
       <div className="auth-brand">KURIO</div>
       <div className="auth-tabs">
-        <Link
-          to="/login"
-          search={{ redirect: search.redirect }}
-          className={mode === "login" ? "active" : ""}
-        >
-          Entrar
-        </Link>
+        {dialog ? (
+          <button
+            type="button"
+            className={mode === "login" ? "active" : ""}
+            aria-pressed={mode === "login"}
+            onClick={() => dialog.onModeChange("login")}
+          >
+            Entrar
+          </button>
+        ) : (
+          <Link
+            to="/login"
+            search={{ redirect: search.redirect }}
+            className={mode === "login" ? "active" : ""}
+          >
+            Entrar
+          </Link>
+        )}
         <span>|</span>
-        <Link
-          to="/register"
-          search={{ redirect: search.redirect }}
-          className={mode === "register" ? "active" : ""}
-        >
-          Criar conta
-        </Link>
+        {dialog ? (
+          <button
+            type="button"
+            className={mode === "register" ? "active" : ""}
+            aria-pressed={mode === "register"}
+            onClick={() => dialog.onModeChange("register")}
+          >
+            Criar conta
+          </button>
+        ) : (
+          <Link
+            to="/register"
+            search={{ redirect: search.redirect }}
+            className={mode === "register" ? "active" : ""}
+          >
+            Criar conta
+          </Link>
+        )}
       </div>
       <h1 className="auth-mobile-title">
         {mode === "login" ? "Entrar" : "Criar perfil de colecionador"}
@@ -216,6 +263,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
             key={provider}
             provider={provider}
             redirect={redirect}
+            onAuthenticated={dialog?.onAuthenticated}
           />
         ))}
       </div>
@@ -227,38 +275,55 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
       )}
       <p className="auth-switch">
         {mode === "login" ? "Novo na Kurio?" : "Já tem uma conta?"}{" "}
-        <Link
-          to={mode === "login" ? "/register" : "/login"}
-          search={{ redirect: search.redirect }}
-        >
-          {mode === "login" ? "Crie uma conta" : "Entre"}
-        </Link>
+        {dialog ? (
+          <button
+            type="button"
+            onClick={() =>
+              dialog.onModeChange(mode === "login" ? "register" : "login")
+            }
+          >
+            {mode === "login" ? "Crie uma conta" : "Entre"}
+          </button>
+        ) : (
+          <Link
+            to={mode === "login" ? "/register" : "/login"}
+            search={{ redirect: search.redirect }}
+          >
+            {mode === "login" ? "Crie uma conta" : "Entre"}
+          </Link>
+        )}
       </p>
     </>
   );
-  return desktop ? (
+  return desktop || dialog ? (
     <>
-      <div className="auth-background">
-        {purchaseContext ? (
-          <Suspense fallback={null}>
-            <CartBackground />
-          </Suspense>
-        ) : (
-          <CatalogPage />
-        )}
-      </div>
+      {!dialog && (
+        <div className="auth-background">
+          {purchaseContext ? (
+            <Suspense fallback={null}>
+              <CartBackground />
+            </Suspense>
+          ) : (
+            <CatalogPage />
+          )}
+        </div>
+      )}
       <Dialog.Root
         open
         onOpenChange={(open) => {
           if (!open) {
             submission.current?.abort();
-            void navigate({ to: purchaseContext ? "/cart" : "/" });
+            if (dialog) dialog.onClose();
+            else void navigate({ to: purchaseContext ? "/cart" : "/" });
           }
         }}
       >
         <Dialog.Portal>
           <Dialog.Overlay className="auth-overlay" />
-          <Dialog.Content className="auth-dialog">
+          <Dialog.Content
+            className={`auth-dialog${dialog ? " auth-inline-dialog" : ""}`}
+            onCloseAutoFocus={dialog?.onCloseAutoFocus}
+          >
             <Dialog.Title className="sr-only">
               {mode === "login" ? "Entrar na Kurio" : "Criar conta Kurio"}
             </Dialog.Title>

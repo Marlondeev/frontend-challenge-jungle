@@ -1017,6 +1017,29 @@
 .auth-background .purchase-mobile-heading {
   display: none;
 }
+.auth-inline-dialog {
+  width: calc(100% - 32px);
+  max-width: 500px;
+  max-height: calc(100dvh - 32px);
+  overscroll-behavior: contain;
+  scroll-padding-block: 24px;
+}
+.auth-inline-dialog .auth-tabs > button,
+.auth-inline-dialog .auth-switch > button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.auth-inline-dialog .auth-tabs > button.active {
+  color: #d28a4c;
+}
+.auth-inline-dialog button:focus-visible {
+  outline: 2px solid #d28a4c;
+  outline-offset: 3px;
+}
 .auth-mobile {
   color: #f7f3ec;
 }
@@ -1584,6 +1607,28 @@
   }
   .auth-register .auth-switch {
     margin-top: 50px;
+  }
+  .auth-inline-dialog {
+    padding: 24px;
+  }
+  .auth-inline-dialog .auth-brand,
+  .auth-inline-dialog .auth-mobile-title {
+    display: none;
+  }
+  .auth-inline-dialog .auth-tabs {
+    display: flex;
+    padding-top: 12px;
+  }
+  .auth-inline-dialog .auth-description {
+    display: block;
+    margin: 24px 0;
+  }
+  .auth-inline-dialog .auth-divider {
+    margin: 24px -24px 14px;
+  }
+  .auth-inline-dialog .auth-submit {
+    min-height: 48px;
+    margin-top: 12px;
   }
 }
 @media (min-width: 769px) and (max-width: 1050px) {

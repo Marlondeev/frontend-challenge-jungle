@@ -92,6 +92,8 @@ Há labels associados, erros por campo, foco visível, link para pular ao conte�
 
 Ao entrar pelo cabeçalho do carrinho, o login retorna a `/cart`; ao usar “Conectar e finalizar”, mantém `/checkout` como destino. No desktop, esses fluxos mostram o carrinho atrás do diálogo, e fechar retorna ao carrinho. A validação de redirecionamento local continua aplicada. Os controles de quantidade seguem as medidas arquivadas: 20×30 px no desktop e 24×24 px no mobile, com símbolos centralizados.
 
+O favorito dos detalhes usa um `AuthDialog` sobre a instância atual do NFT, mantendo a URL e os estados de edição, quantidade e galeria. O diálogo compartilha o formulário e o ciclo de cancelamento com as rotas de autenticação; seus modos são locais e os provedores sociais aceitam um callback de sucesso. O favorito pendente confere NFT, token e usuário aceito antes de usar a mutação do cache privado, sendo consumido uma vez. Fechar ou mudar de NFT descarta a intenção; a devolução de foco usa o botão que abriu a janela.
+
 ## Evidências e publicação
 
 Testes de domínio cobrem precisão, isolamento, estoque, idempotência, imutabilidade e versões. Testes de rede usam os handlers reais MSW. Playwright cobre os doze grupos do desafio em desktop/mobile, incluindo falhas e recuperação, além da geometria de tablet e regressões visuais das quatro páginas principais.
@@ -99,6 +101,8 @@ Testes de domínio cobrem precisão, isolamento, estoque, idempotência, imutabi
 Na versão `c5290eb`, **56 testes unitários/de rede e 100 E2E passaram**, com lint, verificação de tipos e build. A rodada integral de produção usou um worker e registrou zero falhas, retries, casos instáveis ou skips, incluindo as oito comparações visuais. Antes dela, duas baselines foram revistas para a galeria quadrada e os 12 px entre texto e ação nos banners.
 
 A revisão mais recente passou pelos **57 unitários e por 54 E2E selecionados**, além de lint, verificação de tipos e build. A seleção cobre catálogo, faixa de preço, área completa da ordenação, navegação, edições e quantidades, estabilidade da imagem, compra/recuperação, tablet e oito comparações visuais. A rodada de produção terminou sem falhas, retries, casos instáveis ou skips; não atualizou snapshots. Antes dela, as baselines de início e detalhe foram revistas para a faixa de preço, alinhamento da ordenação e preferência inicial por 1/10. O [HTML dessa rodada de 54 casos](reports/e2e/index.html) está versionado; os traces são retidos automaticamente quando há falhas.
+
+Para o login contextual nos detalhes, uma rodada adicional passou pelos **57 unitários e por 54 E2E de conta e autenticação**: conta/acessibilidade, cadastro/login/carrinho, respostas de sessão atrasadas, retorno do login no carrinho, diálogos nos detalhes e sessões sociais. Usou o build de produção com um worker e zero falhas, retries, casos instáveis ou skips. Os doze casos novos confirmam contexto preservado, modos locais, foco, favorito único, cancelamento e retry. O [HTML com capturas desktop/mobile](reports/detail-auth/index.html) preserva essa verificação separadamente das comparações visuais anteriores.
 
 ### Lighthouse
 

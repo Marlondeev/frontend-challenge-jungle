@@ -31,6 +31,8 @@ O build estático fica em `dist/`. Os mocks permanecem ativos no build de demons
 
 É possível criar outras contas. O cupom `KURIO10` concede 10% de desconto. Cada conta possui dados próprios; o carrinho visitante é mesclado no login, respeitando o estoque.
 
+Ao clicar em **Favoritar** nos detalhes sem estar autenticado, o login abre sobre o mesmo NFT, inclusive no celular. Edição, quantidade e visualização são preservadas. Entrar conclui o favorito solicitado; fechar cancela a tentativa e devolve o foco ao botão.
+
 Os botões Google e Facebook abrem uma confirmação de **login de demonstração**: Google usa o perfil fictício Colecionador, e Facebook usa Nova. A confirmação cria uma sessão normal do mock, com persistência e mesclagem do carrinho visitante. Nenhuma conta externa é acessada. Para os requisitos de uma integração real, consulte [docs/social-login.md](docs/social-login.md).
 
 - `/`: busca, coleções, rede, preço, abas, ordenação e paginação combinados na URL.
@@ -74,6 +76,8 @@ As oito baselines em `tests/e2e/visual.spec.ts-snapshots/` foram conferidas cont
 Validação integral da versão `c5290eb`, em 17/11/2026: **56 testes unitários/de rede e 100 E2E passaram**, incluindo as oito comparações visuais. A rodada usou o build de produção, um worker e nenhum retry/skip. As regressões cobrem seleção do header, posição da tela nos filtros, retorno ao mercado, tamanho da arte no carrinho, rascunhos/avatar, edição de ENS e login social de demonstração com cancelamento seguro.
 
 Na revisão mais recente de preço, estoque e ordenação, **57 unitários e 54 E2E selecionados passaram**, com lint, verificação de tipos e build. A rodada de produção cobriu catálogo, filtros, ordenação, navegação, quantidade, compra, tablet e as oito comparações visuais, com um worker e zero falhas/retries/skips. As baselines de início e detalhe foram revistas para os novos controles e a edição inicial 1/10. O [relatório HTML desta rodada de 54 casos](reports/e2e/index.html) está incluído; abra com `npx playwright show-report reports/e2e`.
+
+A revisão do login sobre os detalhes passou pelos **57 unitários e por 54 E2E de autenticação/conta/carrinho**, sem falhas, retries ou skips no build de produção. Inclui doze casos novos de contexto, foco, cancelamento, sessão social, favorito automático e falha com nova tentativa. O [relatório e as capturas desktop/mobile](reports/detail-auth/index.html) podem ser abertos com `npx playwright show-report reports/detail-auth`.
 
 O comando de auditoria exige um build prévio e executa Lighthouse três vezes em início/detalhe e mobile/desktop, usando um Chromium novo por medição. Relatórios HTML/JSON, medianas, LCP, CLS, TBT e informações do ambiente ficam em `lighthouse/reports/`. As metas são 90/95/95/90 para Performance/Acessibilidade/Boas práticas/SEO. Resultados e eventuais desvios são documentados em [ARCHITECTURE.md](ARCHITECTURE.md).
 

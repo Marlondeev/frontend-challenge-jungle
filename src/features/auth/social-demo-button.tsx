@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import type { SocialDemoProvider } from "@/domain/types";
+import type { SocialDemoProvider, User } from "@/domain/types";
 import { useAuth } from "@/lib/auth";
 import { errorMessage } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -37,9 +37,11 @@ const profiles = {
 export function SocialDemoButton({
   provider,
   redirect,
+  onAuthenticated,
 }: {
   provider: SocialDemoProvider;
   redirect: string;
+  onAuthenticated?(user: User): void;
 }) {
   const auth = useAuth();
   const navigate = useNavigate();
@@ -76,9 +78,10 @@ export function SocialDemoButton({
     setPending(true);
     setFailure("");
     try {
-      await auth.loginSocialDemo(provider, attempt.signal);
+      const user = await auth.loginSocialDemo(provider, attempt.signal);
       if (attempt.signal.aborted || submission.current !== attempt) return;
-      await navigate({ to: validLocalRedirect(redirect) });
+      if (onAuthenticated) onAuthenticated(user);
+      else await navigate({ to: validLocalRedirect(redirect) });
     } catch (error) {
       if (!attempt.signal.aborted && submission.current === attempt)
         setFailure(errorMessage(error));

@@ -1,6 +1,13 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Heart, Minus, Plus, ShoppingCart } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import {
   useCartActions,
   useCatalog,
@@ -9,16 +16,22 @@ import {
   useToggleFavorite,
 } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
-import { errorMessage } from "@/lib/api";
+import { errorMessage, getToken } from "@/lib/api";
 import { formatEth } from "@/lib/money";
 import { ArtworkImage } from "@/components/ui/artwork";
 import { NftCard } from "@/features/catalog/catalog-page";
 import "@/styles/storefront.css";
 
+const DetailAuthDialog = lazy(() =>
+  import("@/features/auth/auth-page").then((module) => ({
+    default: module.AuthDialog,
+  })),
+);
+
 export function NftPage({ id }: { id: string }) {
   const nft = useNft(id);
   const favorites = useFavorites();
-  const toggle = useToggleFavorite();
+  const { mutate: toggleFavorite } = useToggleFavorite();
   const { user } = useAuth();
   const navigate = useNavigate();
   const { add } = useCartActions();
@@ -26,19 +39,52 @@ export function NftPage({ id }: { id: string }) {
     nftId: id,
     editionId: "",
   });
-  const editionId = editionSelection.nftId === id ? editionSelection.editionId : "";
+  const editionId =
+    editionSelection.nftId === id ? editionSelection.editionId : "";
   const [quantity, setQuantity] = useState(1);
   const [tab, setTab] = useState<"details" | "reviews">("details");
   const [message, setMessage] = useState("");
   const [crop, setCrop] = useState(0);
+  const [authOpen, setAuthOpen] = useState(false);
+  const favoriteTrigger = useRef<{
+    element: HTMLButtonElement;
+    nftId: string;
+  } | null>(null);
+  const loginNft = useRef<string | null>(null);
+  const requestedFavorite = useRef<{
+    nftId: string;
+    ownerId: string;
+    token: string | null;
+  } | null>(null);
   useEffect(() => {
     setQuantity(1);
+    setAuthOpen(false);
+    loginNft.current = null;
+    requestedFavorite.current = null;
   }, [id]);
+  useEffect(() => {
+    const request = requestedFavorite.current;
+    if (!request) return;
+    if (
+      request.nftId !== id ||
+      !request.token ||
+      getToken() !== request.token
+    ) {
+      requestedFavorite.current = null;
+      return;
+    }
+    // Wait for the authenticated owner to reach this hook before mutating its cache.
+    if (user?.id !== request.ownerId) return;
+    requestedFavorite.current = null;
+    toggleFavorite({ nftId: request.nftId, favorite: true });
+  }, [authOpen, id, user?.id, toggleFavorite]);
   useEffect(() => {
     const editions = nft.data?.editions ?? [];
     const selected =
       editions.find((e) => e.id === editionId && e.stock > 0) ??
-      editions.find((e) => e.id === nft.data?.defaultEditionId && e.stock > 0) ??
+      editions.find(
+        (e) => e.id === nft.data?.defaultEditionId && e.stock > 0,
+      ) ??
       editions.find((e) => e.stock > 0);
     if (editionId !== (selected?.id ?? ""))
       setEditionSelection({ nftId: id, editionId: selected?.id ?? "" });
@@ -74,12 +120,14 @@ export function NftPage({ id }: { id: string }) {
   const edition = item.editions.find((e) => e.id === editionId);
   const favorite = favorites.data?.includes(id) ?? false;
   const available = !!edition && edition.stock >= quantity && quantity > 0;
-  const favoriteAction = () => {
+  const favoriteAction = (event: MouseEvent<HTMLButtonElement>) => {
     if (!user) {
-      navigate({ to: "/login", search: { redirect: `/nft/${id}` } });
+      favoriteTrigger.current = { element: event.currentTarget, nftId: id };
+      loginNft.current = id;
+      setAuthOpen(true);
       return;
     }
-    toggle.mutate({ nftId: id, favorite: !favorite });
+    toggleFavorite({ nftId: id, favorite: !favorite });
   };
   const addToCart = async (buy: boolean) => {
     if (!edition || !available) return;
@@ -99,13 +147,17 @@ export function NftPage({ id }: { id: string }) {
         </Link>
         <button
           aria-label={favorite ? "Remover dos favoritos" : "Favoritar"}
+          aria-pressed={favorite}
           onClick={favoriteAction}
         >
           <Heart fill={favorite ? "currentColor" : "none"} />
         </button>
       </div>
       <div className="breadcrumb">
-        <Link to="/">Início</Link> / <Link to="/" hash="mercado">Mercado</Link>
+        <Link to="/">Início</Link> /{" "}
+        <Link to="/" hash="mercado">
+          Mercado
+        </Link>
       </div>
       <div className="detail-main">
         <div className="gallery">
@@ -278,6 +330,35 @@ export function NftPage({ id }: { id: string }) {
         </div>
         {!available && <p>Esta obra está esgotada.</p>}
       </div>
+      {authOpen && (
+        <Suspense fallback={null}>
+          <DetailAuthDialog
+            onClose={() => {
+              loginNft.current = null;
+              requestedFavorite.current = null;
+              setAuthOpen(false);
+            }}
+            onAuthenticated={(authenticated) => {
+              const requestedNft = loginNft.current;
+              loginNft.current = null;
+              if (requestedNft === id)
+                requestedFavorite.current = {
+                  nftId: id,
+                  ownerId: authenticated.id,
+                  token: getToken(),
+                };
+              setAuthOpen(false);
+            }}
+            onCloseAutoFocus={(event) => {
+              const trigger = favoriteTrigger.current;
+              if (trigger?.nftId === id && trigger.element.isConnected) {
+                event.preventDefault();
+                trigger.element.focus({ preventScroll: true });
+              }
+            }}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
