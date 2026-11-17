@@ -1,0 +1,344 @@
+import { Link, useNavigate } from "@tanstack/react-router";
+import { ArrowLeft, Heart, Minus, Plus, ShoppingCart } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  useCartActions,
+  useCatalog,
+  useFavorites,
+  useNft,
+  useToggleFavorite,
+} from "@/lib/hooks";
+import { useAuth } from "@/lib/auth";
+import { errorMessage } from "@/lib/api";
+import { formatEth } from "@/lib/money";
+import { ArtworkImage } from "@/components/ui/artwork";
+import { NftCard } from "@/features/catalog/catalog-page";
+import "@/styles/storefront.css";
+
+export function NftPage({ id }: { id: string }) {
+  const nft = useNft(id);
+  const favorites = useFavorites();
+  const toggle = useToggleFavorite();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { add } = useCartActions();
+  const [editionId, setEditionId] = useState("");
+  const [quantity, setQuantity] = useState(1);
+  const [tab, setTab] = useState<"details" | "reviews">("details");
+  const [message, setMessage] = useState("");
+  const [crop, setCrop] = useState(0);
+  useEffect(() => {
+    setEditionId("");
+    setQuantity(1);
+  }, [id]);
+  useEffect(() => {
+    const editions = nft.data?.editions ?? [];
+    const selected =
+      editions.find((e) => e.id === editionId && e.stock > 0) ??
+      editions.find((e) => e.stock > 0);
+    setEditionId(selected?.id ?? "");
+    setQuantity((current) =>
+      selected ? Math.max(1, Math.min(current, selected.stock)) : 1,
+    );
+  }, [nft.data?.editions, editionId]);
+  if (nft.isLoading)
+    return (
+      <section
+        className="wrap detail-skeleton"
+        role="status"
+        aria-label="Carregando NFT"
+      >
+        <div className="card-skeleton" />
+        <div className="card-skeleton" />
+      </section>
+    );
+  if (nft.isError || !nft.data)
+    return (
+      <div className="wrap state-box" role="alert">
+        <h1>NFT indisponível</h1>
+        <p>
+          {nft.isError ? errorMessage(nft.error) : "Não encontramos este NFT."}
+        </p>
+        <button onClick={() => nft.refetch()}>Tentar novamente</button>{" "}
+        <Link to="/">Voltar ao mercado</Link>
+      </div>
+    );
+  const item = nft.data;
+  const edition = item.editions.find((e) => e.id === editionId);
+  const favorite = favorites.data?.includes(id) ?? false;
+  const available = !!edition && edition.stock >= quantity && quantity > 0;
+  const favoriteAction = () => {
+    if (!user) {
+      navigate({ to: "/login", search: { redirect: `/nft/${id}` } });
+      return;
+    }
+    toggle.mutate({ nftId: id, favorite: !favorite });
+  };
+  const addToCart = async (buy: boolean) => {
+    if (!edition || !available) return;
+    try {
+      await add.mutateAsync({ nftId: id, editionId: edition.id, quantity });
+      setMessage("NFT adicionado ao carrinho.");
+      if (buy) navigate({ to: "/cart" });
+    } catch (error) {
+      setMessage(errorMessage(error));
+    }
+  };
+  return (
+    <div className="wrap nft-detail">
+      <div className="detail-mobile-top">
+        <Link to="/" aria-label="Voltar ao mercado">
+          <ArrowLeft />
+        </Link>
+        <button
+          aria-label={favorite ? "Remover dos favoritos" : "Favoritar"}
+          onClick={favoriteAction}
+        >
+          <Heart fill={favorite ? "currentColor" : "none"} />
+        </button>
+      </div>
+      <div className="breadcrumb">
+        <Link to="/">Início</Link> / Mercado
+      </div>
+      <div className="detail-main">
+        <div className="gallery">
+          <div className="thumbnails">
+            {[0, 1, 2, 3].map((i) => (
+              <button
+                key={i}
+                aria-label={`Visualização ${i + 1}`}
+                aria-pressed={crop === i}
+                onClick={() => setCrop(i)}
+              >
+                <ArtworkImage artwork={item.artwork} alt="" size="thumb" />
+              </button>
+            ))}
+          </div>
+          <div className={`detail-image crop-${crop}`}>
+            <ArtworkImage
+              artwork={item.artwork}
+              alt={item.name}
+              size="hero"
+              eager
+            />
+          </div>
+        </div>
+        <div className="detail-info">
+          <div className="detail-heading">
+            <h1>{item.name}</h1>
+            <span className="rating">
+              ★ {item.rating} <small>({item.reviews})</small>
+            </span>
+          </div>
+          <div className="detail-price">
+            {formatEth(item.price)} ETH{" "}
+            <span>
+              ★★★★★ <small>{item.reviews} avaliações de colecionadores</small>
+            </span>
+          </div>
+          <h2 className="sr-only">Informações da obra</h2>
+          <h3>Sobre este NFT:</h3>
+          <p>{item.description}</p>
+          <h3>Edição:</h3>
+          <div className="editions">
+            {item.editions.map((e) => (
+              <button
+                key={e.id}
+                disabled={!e.stock}
+                aria-pressed={editionId === e.id}
+                onClick={() => {
+                  setEditionId(e.id);
+                  setQuantity(1);
+                }}
+              >
+                {e.label}
+                {!e.stock ? " (esgotada)" : ""}
+              </button>
+            ))}
+          </div>
+          <div className="desktop-purchase">
+            <Quantity
+              quantity={quantity}
+              setQuantity={setQuantity}
+              stock={edition?.stock ?? 0}
+            />
+            <button
+              className="solid-link"
+              disabled={!available || add.isPending}
+              onClick={() => addToCart(true)}
+            >
+              COMPRAR
+            </button>
+            <button
+              className="outline-link"
+              aria-pressed={favorite}
+              onClick={favoriteAction}
+            >
+              <Heart size={18} fill={favorite ? "currentColor" : "none"} />{" "}
+              {favorite ? "Favoritado" : "Favoritar"}
+            </button>
+            <button
+              className="outline-link"
+              disabled={!available || add.isPending}
+              onClick={() => addToCart(false)}
+            >
+              Adicionar ao carrinho
+            </button>
+          </div>
+          <div className="metadata">
+            <p>ID do token: #{item.id}</p>
+            <p>Coleção: {item.collection}</p>
+            <p>Atributos: {item.rarity || item.category}</p>
+            <p>Rede: {item.network}</p>
+          </div>
+          <p role="status">{message}</p>
+        </div>
+      </div>
+      <div className="detail-tabs">
+        <div role="tablist" aria-label="Informações do NFT">
+          <button
+            role="tab"
+            aria-selected={tab === "details"}
+            onClick={() => setTab("details")}
+          >
+            Detalhes do NFT
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === "reviews"}
+            onClick={() => setTab("reviews")}
+          >
+            Avaliações de colecionadores ({item.reviews})
+          </button>
+        </div>
+        {tab === "details" ? (
+          <div role="tabpanel">
+            <p>{item.description}</p>
+            <p>
+              A propriedade inclui a arte digital e um registro de procedência
+              na rede.
+            </p>
+            <p>
+              <strong>Rede:</strong>
+              <br />
+              {item.network}
+            </p>
+            <p>
+              <strong>Coleção:</strong>
+              <br />
+              {item.collection}
+            </p>
+          </div>
+        ) : (
+          <div role="tabpanel">
+            <p>
+              Este NFT possui {item.reviews} avaliações e nota média{" "}
+              {item.rating}. Os comentários individuais não estão disponíveis
+              nesta demonstração.
+            </p>
+          </div>
+        )}
+      </div>
+      <RelatedCollection category={item.category} currentId={id} />
+      <div className="mobile-purchase">
+        <div>
+          <span>
+            Qtd.{" "}
+            <Quantity
+              quantity={quantity}
+              setQuantity={setQuantity}
+              stock={edition?.stock ?? 0}
+            />
+          </span>
+          <strong>{formatEth(item.price)} ETH</strong>
+        </div>
+        <div>
+          <button
+            className="solid-link"
+            disabled={!available || add.isPending}
+            onClick={() => addToCart(true)}
+          >
+            Comprar NFT
+          </button>
+          <button
+            className="outline-link"
+            aria-label="Adicionar ao carrinho"
+            disabled={!available || add.isPending}
+            onClick={() => addToCart(false)}
+          >
+            <ShoppingCart />
+          </button>
+        </div>
+        {!available && <p>Esta obra está esgotada.</p>}
+      </div>
+    </div>
+  );
+}
+function RelatedCollection({
+  category,
+  currentId,
+}: {
+  category: string;
+  currentId: string;
+}) {
+  // Mount after the detail resolves, so a category query never first requests
+  // and renders the unrelated full catalogue before being replaced.
+  const related = useCatalog({ category });
+  return (
+    <section className="related">
+      <h2>Mais desta coleção</h2>
+      {related.isLoading ? (
+        <div
+          className="related-grid"
+          role="status"
+          aria-label="Carregando coleção"
+        >
+          <div className="card-skeleton" />
+          <div className="card-skeleton" />
+        </div>
+      ) : related.isError ? (
+        <button onClick={() => related.refetch()}>
+          Tentar carregar coleção novamente
+        </button>
+      ) : (
+        <div className="related-grid">
+          {related.data?.items
+            .filter((n) => n.id !== currentId)
+            .slice(0, 5)
+            .map((n) => (
+              <NftCard nft={n} key={n.id} />
+            ))}
+        </div>
+      )}
+    </section>
+  );
+}
+function Quantity({
+  quantity,
+  setQuantity,
+  stock,
+}: {
+  quantity: number;
+  setQuantity: (n: number) => void;
+  stock: number;
+}) {
+  return (
+    <span className="quantity">
+      <button
+        aria-label="Diminuir quantidade"
+        disabled={quantity <= 1}
+        onClick={() => setQuantity(quantity - 1)}
+      >
+        <Minus size={16} />
+      </button>
+      <span aria-live="polite">{quantity}</span>
+      <button
+        aria-label="Aumentar quantidade"
+        disabled={quantity >= stock}
+        onClick={() => setQuantity(quantity + 1)}
+      >
+        <Plus size={16} />
+      </button>
+    </span>
+  );
+}

@@ -1,0 +1,12 @@
+node_modules/
+dist/
+tmp/
+design-reference/
+.superpowers/
+test-results/
+playwright-report/
+output/
+debug.log
+.env.local
+.env.*.local
+*.tsbuildinfo

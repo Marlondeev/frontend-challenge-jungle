@@ -1,0 +1,12 @@
+{
+  "runs": 3,
+  "pages": { "home": "/", "detail": "/nft/emerald-ape-042" },
+  "profiles": ["mobile", "desktop"],
+  "targets": {
+    "performance": 90,
+    "accessibility": 95,
+    "best-practices": 95,
+    "seo": 90
+  },
+  "conditions": "Optimized production build; default success mocks, all shipped images/fonts/features; fresh Chrome profile for every measurement; Lighthouse standard mobile/desktop simulation."
+}

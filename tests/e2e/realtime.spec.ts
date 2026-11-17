@@ -1,0 +1,95 @@
+import { test, expect, login, control, rest, seedCart, checkout, confirm, order } from './helpers'
+import type { Cart, Order, PlaceOrderInput } from '../../src/domain/types'
+
+test('socket price changes during checkout force a new review before ordering', async ({ page }) => {
+  await login(page)
+  await seedCart(page)
+  await checkout(page)
+  const posts: string[] = []
+  page.on('request', request => { if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/orders') posts.push(request.url()) })
+  await control(page, { action: 'nft-update', price: '1.49' })
+  await expect(page.getByRole('status').filter({ hasText: 'O preço ou a disponibilidade' })).toBeVisible()
+  await page.getByRole('button', { name: 'Confirmar compra', exact: true }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'A cotação foi atualizada.' })).toBeVisible()
+  await expect(page.locator('.checkout-summary > .purchase-totals .purchase-total dd')).toHaveText('1.506 ETH')
+  expect(posts).toHaveLength(0)
+  await expect(page).toHaveURL(/\/checkout$/)
+  const id = await confirm(page)
+  await expect(page.getByRole('heading', { name: 'Seus NFTs agora estão na sua carteira' })).toBeVisible()
+  expect((await order(page, id)).items[0].unitPrice).toBe('1.49')
+})
+
+test('socket stock exhaustion blocks confirmation and preserves the cart for recovery', async ({ page }) => {
+  await login(page)
+  await seedCart(page)
+  await checkout(page)
+  let orderPosts = 0
+  page.on('request', request => { if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/orders') orderPosts++ })
+  await control(page, { action: 'nft-update', stock: 0 })
+  await expect(page.getByRole('status').filter({ hasText: 'O preço ou a disponibilidade' })).toBeVisible()
+  await page.getByRole('button', { name: 'Confirmar compra', exact: true }).click()
+  await expect(page.getByRole('alert').filter({ hasText: /apenas 0 unidade/ })).toBeVisible()
+  expect(orderPosts).toBe(0)
+  expect((await rest<Cart>(page, '/cart')).items).toHaveLength(1)
+  await control(page, { action: 'nft-update', stock: 10 })
+  await page.getByRole('button', { name: 'Revisar compra', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Revise sua compra' })).toBeVisible()
+})
+
+test('duplicated and old NFT events do not regress price or repeat notifications', async ({ page }) => {
+  await seedCart(page)
+  await page.goto('/nft/emerald-ape-042')
+  await expect(page.getByRole('heading', { name: 'Emerald Ape #042', exact: true })).toBeVisible()
+  await control(page, { action: 'nft-update', price: '1.39' })
+  await expect(page.locator('.detail-price')).toContainText('1.39 ETH')
+  await control(page, { action: 'nft-update', price: '1.59' })
+  await expect(page.locator('.detail-price')).toContainText('1.59 ETH')
+  const notices = page.getByRole('status').filter({ hasText: 'O preço ou a disponibilidade' })
+  await expect(notices).toHaveCount(2)
+  await control(page, { action: 'duplicate' })
+  await control(page, { action: 'stale' })
+  // A subsequent REST request crosses the same event loop without an arbitrary sleep.
+  await rest(page, '/nfts/emerald-ape-042')
+  await expect(page.locator('.detail-price')).toContainText('1.59 ETH')
+  await expect(notices).toHaveCount(2)
+})
+
+test('disconnect and reconnect reconcile missed catalogue changes', async ({ page }) => {
+  await page.goto('/nft/emerald-ape-042')
+  await expect(page.locator('.detail-price')).toContainText('1.19 ETH')
+  await control(page, { action: 'disconnect' })
+  await expect(page.getByRole('status').filter({ hasText: 'Conexão interrompida.' })).toBeVisible()
+  await control(page, { action: 'nft-update', price: '2.19' })
+  await expect(page.locator('.detail-price')).toContainText('1.19 ETH')
+  await control(page, { action: 'reconnect' })
+  await expect(page.getByRole('status').filter({ hasText: 'Conexão restabelecida.' })).toBeVisible()
+  await expect(page.locator('.detail-price')).toContainText('2.19 ETH')
+})
+
+test('pending purchase refresh while disconnected recovers one order and terminal status survives event replay', async ({ page }) => {
+  await login(page)
+  await seedCart(page)
+  await checkout(page)
+  await control(page, { action: 'scenario', scenario: 'order-timeout' })
+  await control(page, { action: 'disconnect' })
+  const requestPromise = page.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === '/api/orders')
+  await page.getByRole('button', { name: 'Confirmar compra', exact: true }).click()
+  const input = (await requestPromise).postDataJSON() as PlaceOrderInput
+  await expect.poll(async () => {
+    const result = await page.evaluate(async key => (await fetch(`/api/orders/by-key/${key}`, { headers: { Authorization: `Bearer ${localStorage.getItem('kurio.session')}` } })).status, input.idempotencyKey)
+    return result
+  }).toBe(200)
+  const pending = await rest<Order>(page, `/orders/by-key/${input.idempotencyKey}`)
+  expect(pending.status).toBe('pending')
+  await page.reload()
+  await expect(page).toHaveURL(new RegExp(`/order/${pending.id}$`))
+  await control(page, { action: 'reconnect' })
+  await expect(page.getByRole('heading', { name: 'Seus NFTs agora estão na sua carteira' })).toBeVisible()
+  await control(page, { action: 'duplicate' })
+  await control(page, { action: 'stale' })
+  await expect(page.getByRole('heading', { name: 'Seus NFTs agora estão na sua carteira' })).toBeVisible()
+  const recovered = await rest<Order>(page, `/orders/by-key/${input.idempotencyKey}`)
+  expect(recovered.id).toBe(pending.id)
+  expect(recovered.status).toBe('confirmed')
+  expect((await rest<Cart>(page, '/cart')).items).toHaveLength(0)
+})
