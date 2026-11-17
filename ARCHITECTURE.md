@@ -23,32 +23,38 @@ A faixa de preço usa dois controles nativos com passos de 0,01 ETH. O rascunho 
 
 O Axios usa `/api`, timeout de 8 segundos e os cabeçalhos `X-Visitor-Id` e `Authorization: Bearer <token>`. O contrato de erro é `{ message, code, fields?, details? }`. Os handlers MSW delegam ao mesmo domínio usado nos testes Node. O cenário selecionado altera latência/resposta no handler, sem atalhos de sucesso na interface. `/api/__control` continua acessível em falhas para permitir recuperação e reset.
 
-| Método e recurso                                                             | Comportamento                            |
-| ---------------------------------------------------------------------------- | ---------------------------------------- |
-| `GET /api/nfts`, `GET /api/nfts/:id`                                         | Catálogo com filtros/paginação e detalhe |
-| `GET /api/session`                                                           | Sessão atual ou visitante                |
-| `POST /api/session/login`, `/register`, `/logout`                            | Autenticação, cadastro e encerramento    |
-| `POST /api/session/social-demo`                                              | Sessão fictícia Google/Facebook no mock  |
-| `POST /api/session/social-demo`                                             | Sessão de perfil fictício Google/Facebook, apenas no mock |
-| `GET /api/cart`                                                              | Carrinho do visitante/usuário            |
-| `POST /api/cart/items`                                                       | Adição por NFT/edição/quantidade         |
-| `PATCH /api/cart/items/:id`, `DELETE /api/cart/items/:id`                    | Alteração/remoção                        |
-| `PUT /api/cart/coupon`                                                       | Aplicar ou remover cupom                 |
-| `GET /api/favorites`, `POST /api/favorites/:id`, `DELETE /api/favorites/:id` | Favoritos privados                       |
-| `GET /api/profile`, `PATCH /api/profile`, `PATCH /api/profile/password`      | Perfil/avatar/senha                      |
-| `GET /api/wallets`, `POST /api/wallets`, `PATCH /api/wallets/:id`            | Carteiras privadas                       |
-| `POST /api/quote`                                                            | Snapshot revalidado de itens e totais    |
-| `POST /api/orders`                                                           | Criar/recuperar compra idempotente       |
-| `GET /api/orders/:id`, `GET /api/orders/by-key/:key`                         | Consultar pedido do usuário autenticado  |
-| `GET /api/__control`, `POST /api/__control`                                  | Cenário, reset e eventos determinísticos |
+| Método e recurso                                                             | Comportamento                                             |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `GET /api/nfts`, `GET /api/nfts/:id`                                         | Catálogo com filtros/paginação e detalhe                  |
+| `GET /api/session`                                                           | Sessão atual ou visitante                                 |
+| `POST /api/session/login`, `/register`, `/logout`                            | Autenticação, cadastro e encerramento                     |
+| `POST /api/session/social-demo`                                              | Sessão fictícia Google/Facebook no mock                   |
+| `POST /api/session/social-demo`                                              | Sessão de perfil fictício Google/Facebook, apenas no mock |
+| `GET /api/cart`                                                              | Carrinho do visitante/usuário                             |
+| `POST /api/cart/items`                                                       | Adição por NFT/edição/quantidade                          |
+| `PATCH /api/cart/items/:id`, `DELETE /api/cart/items/:id`                    | Alteração/remoção                                         |
+| `PUT /api/cart/coupon`                                                       | Aplicar ou remover cupom                                  |
+| `GET /api/favorites`, `POST /api/favorites/:id`, `DELETE /api/favorites/:id` | Favoritos privados                                        |
+| `GET /api/profile`, `PATCH /api/profile`, `PATCH /api/profile/password`      | Perfil/avatar/senha                                       |
+| `GET /api/wallets`, `POST /api/wallets`, `PATCH /api/wallets/:id`            | Carteiras privadas                                        |
+| `POST /api/quote`                                                            | Snapshot revalidado de itens e totais                     |
+| `POST /api/orders`                                                           | Criar/recuperar compra idempotente                        |
+| `GET /api/orders/:id`, `GET /api/orders/by-key/:key`                         | Consultar pedido do usuário autenticado                   |
+| `GET /api/__control`, `POST /api/__control`                                  | Cenário, reset e eventos determinísticos                  |
 
 O estado persistido contém fixtures e alterações por identidade. Senhas usam PBKDF2 com salt; tokens são opacos e expiram. Isso permite avaliar o fluxo, sem transformar localStorage em um mecanismo de segurança adequado a um serviço real. No backend real, senhas e sessões devem permanecer no servidor e tokens devem usar uma estratégia apropriada ao modelo de ameaça.
+
+O banco `kurio.mock.v1` e o token `kurio.session` são compartilhados por abas da mesma origem. Cada operação do backend recarrega o estado completo depois de adquirir o coordenador de armazenamento, antes de consultar, liquidar pedidos ou alterar dados. A inicialização/migração e os timers de pedidos usam a mesma coordenação, preservando sessões, carrinhos, estoque, perfis e registros de idempotência gravados por outra aba. O navegador aguarda a inicialização coordenada antes de instalar os handlers MSW.
+
+Com `navigator.locks`, as seções síncronas de leitura, validação e gravação são serializadas entre abas da origem. Sem essa API, uma fila compartilhada por adaptador coordena apenas instâncias no mesmo contexto JavaScript, como os backends de teste em memória. Recarregar os dados evita sobrescritas sequenciais por cópias antigas, mas esse fallback não garante atomicidade para gravações simultâneas em abas diferentes.
+
+A derivação de senha ocorre fora das seções coordenadas. Login, cadastro e troca de senha obtêm um snapshot, calculam o hash e recarregam o estado para validar e efetivar a operação: o cadastro confere novamente a unicidade, o login confere o usuário e a credencial atual, e a troca de senha revalida o token e a credencial original. A liquidação verifica o estado persistido do pedido antes de reduzir estoque; outro timer não reaplica uma conclusão já registrada. Leituras de cenário e autorização de socket não gravam dados nem consomem o carrinho social pendente. Durante eventos síncronos, essas leituras usam o estado da transação em andamento.
 
 O login social é uma demonstração explícita, confirmada em diálogo antes de autenticar. O mock associa `google` a `user-collector` e `facebook` a `user-nova` por IDs estáveis; não recebe credenciais externas. A emissão de sessão e a mesclagem do carrinho usam os mesmos helpers do login por senha, que continua validando a senha. Na sessão social, o merge acontece uma única vez na primeira requisição com o token aceito; uma resposta cancelada não consome o carrinho visitante. Sessões antigas continuam compatíveis. Com `VITE_MOCKS=false`, os botões ficam indisponíveis e o cliente não chama o endpoint de demonstração. A integração OAuth real depende de aplicativos Google/Meta e de validação no servidor; os requisitos estão em [docs/social-login.md](docs/social-login.md).
 
 ## Sessão e cache
 
-Chaves públicas: `['catalog', search]`, `['nft', id]`. Chaves privadas incluem a identidade: `['cart', owner]`, `['favorites', owner]`, `['wallets', owner]`, `['order', owner, id]` e `['quote', owner, cartVersion, coupon]`. Login, logout e expiração cancelam/removem consultas privadas. Mutações conferem a identidade atual antes de publicar respostas tardias. O interceptor 401 só expira a sessão quando o token da requisição ainda é o token ativo.
+Chaves públicas: `['catalog', search]`, `['nft', id]`. Chaves privadas incluem a identidade: `['cart', owner]`, `['favorites', owner]`, `['wallets', owner]`, `['order', owner, id]` e `['quote', owner, cartVersion, coupon]`. Login, logout e expiração cancelam/removem consultas privadas. Mutações conferem a identidade atual antes de publicar respostas tardias. O interceptor 401 só expira a sessão quando o token da requisição ainda é o token ativo e o erro não é `INVALID_CREDENTIALS`. Esse código indica credenciais de login incorretas e preserva a sessão atual; os demais 401 continuam invalidando o token correspondente. O evento de armazenamento do token invalida a consulta de sessão nas outras abas, que usam o estado persistido atual para revalidar a identidade.
 
 Favoritos atualizam o cache antes da resposta e restauram o valor anterior quando há falha. Catálogo mantém a lista anterior durante filtros enquanto a consulta mais recente está pendente e cancela requisições obsoletas. Carrinho e cotação são reconciliados após mutações e eventos.
 
@@ -56,13 +62,15 @@ No perfil, atualizações de avatar e sessão preservam campos editados localmen
 
 Consultas usam 20 segundos de validade e 5 minutos de retenção por padrão, com atualização ao focar a janela. Falhas transitórias recebem no máximo uma repetição; 401, 403, 404, 409 e 422 não são repetidos. Mutações não têm retry automático. Sessão usa 15 segundos de validade, consulta periódica a cada 30 segundos e nenhuma repetição automática; a validade do token no mock é de uma hora.
 
+O cenário persistido `expired-session` invalida os tokens usados nas operações autenticadas até uma nova autenticação válida. Entrar por senha, cadastrar uma conta ou confirmar a demonstração social emite uma nova sessão e retorna apenas esse cenário a `success`; os demais cenários permanecem selecionados. A ação `expire` antecipa o prazo das sessões existentes e não impede um login posterior. A verificação do prazo real, o logout e as respostas 401 continuam ativos.
+
 ## Transporte em tempo real
 
 O cliente `socket.io-client` conecta a `https://realtime.kurio.test` por WebSocket. MSW intercepta o endereço e `@mswjs/socket.io-binding` adapta handshake e frames ao protocolo Socket.IO; nenhum servidor externo recebe essa conexão. A versão 0.2.0 do binding precisa de heartbeat explícito no mock. O módulo do cliente é importado depois de instalar a interceptação, porque o Engine.IO captura o construtor WebSocket na inicialização.
 
 Os eventos `nft.updated` e `order.updated` usam `{ eventId, resourceId, version, payload }`. `VersionGate` compara a versão com REST/cache e com o último evento aceito, mantém um histórico limitado de identificadores e protege estados terminais de pedidos. Atualizações de NFT reconciliam catálogo, detalhe, carrinho e cotação. Atualizações privadas verificam a identidade no mock e no cliente. Após reconexão, recursos ativos são invalidados e consultados por REST; a assinatura anterior é removida na troca de identidade. Pedidos pendentes também têm consulta de recuperação periódica.
 
-O transporte é intencionalmente limitado ao WebSocket textual usado nesta demonstração: não testa fallback por polling, anexos binários ou uma infraestrutura distribuída Socket.IO. Dados simulados e assinaturas pertencem à instância da aplicação; o mock não representa sincronização multiaba ou entre dispositivos.
+O transporte é intencionalmente limitado ao WebSocket textual usado nesta demonstração: não testa fallback por polling, anexos binários ou uma infraestrutura distribuída Socket.IO. A persistência e a sessão são compartilhadas entre abas conforme a coordenação descrita acima; as assinaturas e a entrega de eventos Socket.IO pertencem a cada instância da aplicação. Alterações feitas por outra aba são lidas nas consultas REST seguintes, sem transmissão de eventos entre abas ou sincronização entre dispositivos.
 
 ## Compra e precisão
 
@@ -78,7 +86,7 @@ O pedido contém snapshots de itens, valores, carteira/rede e dados do coleciona
 
 O contrato de criação é `PlaceOrderInput`: `{ quoteId, walletId, idempotencyKey, collector, provider }`. O mesmo identificador segue no header `Idempotency-Key`. `collector` contém `displayName`, `username`, `email`, `ens` e `note`; o servidor valida e normaliza os textos. Clientes anteriores podem omitir `collector`/`provider`, caso em que o perfil e o provedor da carteira são copiados. Essa compatibilidade não altera recibos já persistidos. Recibos anteriores sem esse snapshot continuam legíveis.
 
-Erros REST usam `{ message, code, fields?, details? }`, com HTTP 401 para sessão inválida, 403 para recurso privado de outro usuário, 404 para inexistente, 409 para conflito de estado/idempotência e 422 para validação. A interface associa `fields` aos controles e mantém uma mensagem geral quando necessário.
+Erros REST usam `{ message, code, fields?, details? }`, com HTTP 401 para sessão inválida ou credenciais de login incorretas (`INVALID_CREDENTIALS`), 403 para recurso privado de outro usuário, 404 para inexistente, 409 para conflito de estado/idempotência e 422 para validação. A interface associa `fields` aos controles e mantém uma mensagem geral quando necessário.
 
 ## Interface, referência e acessibilidade
 
@@ -98,11 +106,11 @@ O favorito dos detalhes usa um `AuthDialog` sobre a instância atual do NFT, man
 
 Testes de domínio cobrem precisão, isolamento, estoque, idempotência, imutabilidade e versões. Testes de rede usam os handlers reais MSW. Playwright cobre os doze grupos do desafio em desktop/mobile, incluindo falhas e recuperação, além da geometria de tablet e regressões visuais das quatro páginas principais.
 
-Na versão `c5290eb`, **56 testes unitários/de rede e 100 E2E passaram**, com lint, verificação de tipos e build. A rodada integral de produção usou um worker e registrou zero falhas, retries, casos instáveis ou skips, incluindo as oito comparações visuais. Antes dela, duas baselines foram revistas para a galeria quadrada e os 12 px entre texto e ação nos banners.
+Após a correção de persistência da sessão, **77 testes unitários/de rede e 144 E2E passaram**, com lint, verificação de tipos e build. A rodada integral de produção usou desktop/mobile, um worker e zero falhas, retries, casos instáveis ou skips, incluindo as oito comparações visuais sem atualizar snapshots. O [HTML integral](reports/e2e/index.html) está versionado; traces são retidos automaticamente quando há falhas.
 
-A revisão mais recente passou pelos **57 unitários e por 54 E2E selecionados**, além de lint, verificação de tipos e build. A seleção cobre catálogo, faixa de preço, área completa da ordenação, navegação, edições e quantidades, estabilidade da imagem, compra/recuperação, tablet e oito comparações visuais. A rodada de produção terminou sem falhas, retries, casos instáveis ou skips; não atualizou snapshots. Antes dela, as baselines de início e detalhe foram revistas para a faixa de preço, alinhamento da ordenação e preferência inicial por 1/10. O [HTML dessa rodada de 54 casos](reports/e2e/index.html) está versionado; os traces são retidos automaticamente quando há falhas.
+Os oito casos novos de persistência em navegador verificam sessão e carrinho com uma aba anterior ao login, recarregamento, recuperação do cenário de expiração, logout entre abas e a consulta automática após 30 segundos. Quatorze regressões de backend cobrem estado antigo, coordenação, cadastro e credenciais concorrentes, bootstrap, timers e leituras reentrantes de socket; seis testes do interceptor verificam preservação da sessão após credenciais incorretas e invalidação correta de tokens expirados ou rejeitados. Os casos anteriores de catálogo, faixa de preço, ordenação, navegação, edições, perfil, autenticação, compra, tempo real e tablet também passaram.
 
-Para o login contextual nos detalhes, uma rodada adicional passou pelos **57 unitários e por 54 E2E de conta e autenticação**: conta/acessibilidade, cadastro/login/carrinho, respostas de sessão atrasadas, retorno do login no carrinho, diálogos nos detalhes e sessões sociais. Usou o build de produção com um worker e zero falhas, retries, casos instáveis ou skips. Os doze casos novos confirmam contexto preservado, modos locais, foco, favorito único, cancelamento e retry. O [HTML com capturas desktop/mobile](reports/detail-auth/index.html) preserva essa verificação separadamente das comparações visuais anteriores.
+Para o login contextual nos detalhes, o [HTML anterior com capturas desktop/mobile](reports/detail-auth/index.html) preserva uma seleção de 54 E2E de conta e autenticação. Os doze casos de diálogo confirmam contexto preservado, modos locais, foco, favorito único, cancelamento e retry, e também passaram na rodada integral atual.
 
 ### Lighthouse
 

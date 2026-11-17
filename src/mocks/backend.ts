@@ -22,6 +22,10 @@ import {
   userFixtures,
   walletFixtures,
 } from "./fixtures";
+import {
+  createStorageCoordinator,
+  type StorageCoordinator,
+} from "./storage-coordinator";
 
 export interface StorageAdapter {
   getItem(key: string): string | null;
@@ -181,21 +185,44 @@ interface Options {
   storage: StorageAdapter;
   now?: () => number;
   schedule?: boolean;
+  coordinate?: StorageCoordinator;
 }
 export function createBackend({
   storage,
   now = Date.now,
   schedule = true,
+  coordinate = createStorageCoordinator(storage, STORAGE_KEY),
 }: Options) {
-  let state: State;
-  try {
-    const parsed = JSON.parse(storage.getItem(STORAGE_KEY) ?? "null");
-    state = parsed?.schema === 1 ? parsed : initial();
-  } catch {
-    state = initial();
+  function load(): State {
+    let loaded: State;
+    try {
+      const parsed = JSON.parse(storage.getItem(STORAGE_KEY) ?? "null");
+      loaded = parsed?.schema === 1 ? parsed : initial();
+    } catch {
+      loaded = initial();
+    }
+    applyNftFixtureDefaults(loaded.nfts);
+    loaded.eventHistory ??= [];
+    return loaded;
   }
-  applyNftFixtureDefaults(state.nfts);
-  state.eventHistory ??= [];
+  let state = load();
+  let inTransaction = false;
+  let disposed = false;
+  // Reentrant event listeners read the current transaction without detaching
+  // records still being mutated by settlement. Other reads never write storage.
+  const view = () => (inTransaction ? state : load());
+  function transaction<T>(operation: () => T): Promise<T> {
+    return coordinate(() => {
+      state = load();
+      inTransaction = true;
+      try {
+        return operation();
+      } finally {
+        inTransaction = false;
+        schedulePending();
+      }
+    });
+  }
   const listeners = new Set<
     (name: EventName, event: Event, userId?: string) => void
   >();
@@ -392,16 +419,25 @@ export function createBackend({
     save();
   }
   function schedulePending() {
-    if (!schedule) return;
+    if (!schedule || disposed) return;
+    for (const [orderId, timer] of timers)
+      if (state.orders[orderId]?.order.status !== "pending") {
+        clearTimeout(timer);
+        timers.delete(orderId);
+      }
     for (const record of Object.values(state.orders))
       if (record.order.status === "pending") {
         if (timers.has(record.order.id)) continue;
         const timer = setTimeout(
           () => {
             timers.delete(record.order.id);
-            settle();
-            // Browser/Node timers can wake just before the persisted wall-clock deadline.
-            schedulePending();
+            if (disposed) return;
+            void transaction(() => {
+              if (!disposed) settle();
+              // Transaction cleanup rearms timers that wake before dueAt.
+            }).catch((error: unknown) =>
+              console.error("[Kurio mock timer]", error),
+            );
           },
           Math.max(1, record.dueAt - now()),
         );
@@ -465,18 +501,173 @@ export function createBackend({
     password: string,
     context: RequestContext,
   ) {
-    const user = state.users.find(
-      (entry) => entry.email === email.trim().toLowerCase(),
-    );
+    const normalized = email.trim().toLowerCase();
+    const snapshot = await transaction(() => {
+      settle();
+      const user = state.users.find((entry) => entry.email === normalized);
+      if (!user) return invalidCredentials();
+      return { userId: user.id, auth: { ...state.passwords[user.id] } };
+    });
+    const hash = await hashPassword(password, snapshot.auth.salt);
+    return transaction(() => {
+      const user = state.users.find(
+        (entry) => entry.id === snapshot.userId && entry.email === normalized,
+      );
+      const current = state.passwords[snapshot.userId];
+      if (
+        !user ||
+        hash !== snapshot.auth.hash ||
+        current?.salt !== snapshot.auth.salt ||
+        current?.hash !== snapshot.auth.hash
+      )
+        return invalidCredentials();
+      return issueSession(user, context);
+    });
+  }
+  function invalidCredentials(): never {
+    return fail(401, "INVALID_CREDENTIALS", "E-mail ou senha incorretos.", {
+      email: "Confira suas credenciais.",
+    });
+  }
+  function requireUniqueAccount(email: string, username: string) {
     if (
-      !user ||
-      (await hashPassword(password, state.passwords[user.id].salt)) !==
-        state.passwords[user.id].hash
+      state.users.some(
+        (user) =>
+          user.email === email ||
+          user.username.toLowerCase() === username.toLowerCase(),
+      )
     )
-      fail(401, "INVALID_CREDENTIALS", "E-mail ou senha incorretos.", {
-        email: "Confira suas credenciais.",
+      fail(
+        409,
+        "ACCOUNT_EXISTS",
+        "Este e-mail ou nome de usuário já está em uso.",
+        { email: "E-mail ou usuário já cadastrado." },
+      );
+  }
+  async function register(
+    input: Record<string, unknown>,
+    context: RequestContext,
+  ) {
+    const { email, username, password } = await transaction(() => {
+      settle();
+      const fields: Record<string, string> = {};
+      const email = String(input.email ?? "")
+        .trim()
+        .toLowerCase();
+      const username = String(input.username ?? "").trim();
+      const password = String(input.password ?? "");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+        fields.email = "Informe um e-mail válido.";
+      if (!/^[\w.-]{3,24}$/.test(username))
+        fields.username = "Use de 3 a 24 letras, números, pontos ou traços.";
+      if (
+        password.length < 8 ||
+        !/[A-Z]/.test(password) ||
+        !/[0-9]/.test(password)
+      )
+        fields.password = "Use 8 caracteres, uma letra maiúscula e um número.";
+      if (
+        input.confirmPassword !== undefined &&
+        input.confirmPassword !== password
+      )
+        fields.confirmPassword = "As senhas precisam ser iguais.";
+      if (Object.keys(fields).length)
+        fail(422, "VALIDATION_ERROR", "Revise os campos do cadastro.", fields);
+      requireUniqueAccount(email, username);
+      return { email, username, password };
+    });
+    const salt = crypto.randomUUID();
+    const hash = await hashPassword(password, salt);
+    return transaction(() => {
+      requireUniqueAccount(email, username);
+      const user: User = {
+        id: id("user"),
+        email,
+        username,
+        displayName: username,
+        walletAlias: "",
+        ens: "",
+      };
+      state.users.push(user);
+      state.passwords[user.id] = { salt, hash };
+      state.wallets[user.id] = walletFixtures(user.id);
+      return issueSession(user, context);
+    });
+  }
+  function validateMutationScenario(method: string) {
+    if (
+      state.scenario === "validation-error" &&
+      ["POST", "PATCH", "PUT"].includes(method)
+    )
+      fail(422, "VALIDATION_ERROR", "Revise os campos indicados.", {
+        email: "Informe um e-mail válido.",
+        displayName: "Informe seu nome completo.",
+        address: "Confira o endereço da carteira.",
       });
-    return issueSession(user!, context);
+  }
+  async function changePassword(
+    method: string,
+    input: Record<string, unknown>,
+    context: RequestContext,
+  ) {
+    const snapshot = await transaction(() => {
+      settle();
+      const user = authenticate(context)!;
+      validateMutationScenario(method);
+      return { userId: user.id, auth: { ...state.passwords[user.id] } };
+    });
+    if (
+      (await hashPassword(
+        String(input.currentPassword ?? ""),
+        snapshot.auth.salt,
+      )) !== snapshot.auth.hash
+    )
+      fail(422, "INVALID_PASSWORD", "Senha atual incorreta.", {
+        currentPassword: "Senha incorreta.",
+      });
+    const newPassword = String(input.newPassword ?? "");
+    if (
+      newPassword.length < 8 ||
+      !/[A-Z]/.test(newPassword) ||
+      !/[0-9]/.test(newPassword)
+    )
+      fail(
+        422,
+        "WEAK_PASSWORD",
+        "A nova senha deve ter 8 caracteres, uma letra maiúscula e um número.",
+        {
+          newPassword: "Senha muito fraca.",
+        },
+      );
+    if (
+      input.confirmPassword !== undefined &&
+      input.newPassword !== input.confirmPassword
+    )
+      fail(422, "PASSWORD_MISMATCH", "As senhas precisam ser iguais.", {
+        confirmPassword: "As senhas precisam ser iguais.",
+      });
+    const salt = crypto.randomUUID();
+    const hash = await hashPassword(newPassword, salt);
+    return transaction(() => {
+      const user = authenticate(context)!;
+      const current = state.passwords[snapshot.userId];
+      if (
+        user.id !== snapshot.userId ||
+        current?.salt !== snapshot.auth.salt ||
+        current?.hash !== snapshot.auth.hash
+      )
+        fail(
+          409,
+          "PASSWORD_CHANGED",
+          "Sua senha foi alterada por outra solicitação. Informe a senha atual e tente novamente.",
+          {
+            currentPassword: "A senha foi alterada. Informe a senha atual.",
+          },
+        );
+      state.passwords[user.id] = { salt, hash };
+      save();
+      return {};
+    });
   }
   function socialDemo(provider: unknown, context: RequestContext) {
     if (provider !== "google" && provider !== "facebook")
@@ -525,6 +716,9 @@ export function createBackend({
     context: RequestContext,
     deferGuestMerge = false,
   ): AuthResult {
+    // This persistent demo condition has served its purpose once the user
+    // successfully signs in again. Other failure scenarios remain selected.
+    if (state.scenario === "expired-session") state.scenario = "success";
     const visitorId = context.visitorId ?? "anonymous";
     if (!deferGuestMerge) mergeGuestCart(authenticated.id, visitorId);
     const token = crypto.randomUUID(),
@@ -613,14 +807,14 @@ export function createBackend({
     emit("nft.updated", item);
   }
   // The internal dispatcher serves heterogeneous endpoints; lib/api.ts exposes the typed public contracts.
-  async function request(
+  function dispatch(
     method: string,
     path: string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Validated heterogeneous JSON dispatcher; public contracts are typed in lib/api.ts.
     body: any = {},
     context: RequestContext = {},
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Each route returns its public DTO; keep the transport boundary generic.
-  ): Promise<any> {
+  ): any {
     if (path === "/__control")
       return method === "POST"
         ? control(body)
@@ -629,81 +823,8 @@ export function createBackend({
     if (path === "/nfts") return list(body);
     if (path.startsWith("/nfts/"))
       return clone(nft(decodeURIComponent(path.slice(6))));
-    if (path === "/session/login" && method === "POST")
-      return login(
-        String(body.email ?? ""),
-        String(body.password ?? ""),
-        context,
-      );
     if (path === "/session/social-demo" && method === "POST")
       return socialDemo(body.provider, context);
-    if (path === "/session/register" && method === "POST") {
-      const fields: Record<string, string> = {};
-      const email = String(body.email ?? "")
-          .trim()
-          .toLowerCase(),
-        username = String(body.username ?? "").trim(),
-        password = String(body.password ?? "");
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-        fields.email = "Informe um e-mail válido.";
-      if (!/^[\w.-]{3,24}$/.test(username))
-        fields.username = "Use de 3 a 24 letras, números, pontos ou traços.";
-      if (
-        password.length < 8 ||
-        !/[A-Z]/.test(password) ||
-        !/[0-9]/.test(password)
-      )
-        fields.password = "Use 8 caracteres, uma letra maiúscula e um número.";
-      if (
-        body.confirmPassword !== undefined &&
-        body.confirmPassword !== password
-      )
-        fields.confirmPassword = "As senhas precisam ser iguais.";
-      if (Object.keys(fields).length)
-        fail(422, "VALIDATION_ERROR", "Revise os campos do cadastro.", fields);
-      if (
-        state.users.some(
-          (user) =>
-            user.email === email ||
-            user.username.toLowerCase() === username.toLowerCase(),
-        )
-      )
-        fail(
-          409,
-          "ACCOUNT_EXISTS",
-          "Este e-mail ou nome de usuário já está em uso.",
-          { email: "E-mail ou usuário já cadastrado." },
-        );
-      const user: User = {
-        id: id("user"),
-        email,
-        username,
-        displayName: username,
-        walletAlias: "",
-        ens: "",
-      };
-      const salt = crypto.randomUUID(),
-        hash = await hashPassword(password, salt);
-      // Hashing yields to the event loop; recheck uniqueness before the atomic insert.
-      if (
-        state.users.some(
-          (entry) =>
-            entry.email === email ||
-            entry.username.toLowerCase() === username.toLowerCase(),
-        )
-      )
-        fail(
-          409,
-          "ACCOUNT_EXISTS",
-          "Este e-mail ou nome de usuário já está em uso.",
-          { email: "E-mail ou usuário já cadastrado." },
-        );
-      state.users.push(user);
-      state.passwords[user.id] = { salt, hash };
-      state.wallets[user.id] = walletFixtures(user.id);
-      save();
-      return login(email, password, context);
-    }
     if (path === "/session") {
       const user = authenticate(context, false);
       return {
@@ -779,15 +900,7 @@ export function createBackend({
       return response;
     }
     const user = authenticate(context)!;
-    if (
-      state.scenario === "validation-error" &&
-      ["POST", "PATCH", "PUT"].includes(method)
-    )
-      fail(422, "VALIDATION_ERROR", "Revise os campos indicados.", {
-        email: "Informe um e-mail válido.",
-        displayName: "Informe seu nome completo.",
-        address: "Confira o endereço da carteira.",
-      });
+    validateMutationScenario(method);
     if (path.startsWith("/favorites")) {
       const favorites = state.favorites[user.id] ?? [];
       if (method !== "GET") {
@@ -806,47 +919,6 @@ export function createBackend({
         save();
       }
       return clone(state.favorites[user.id] ?? []);
-    }
-    if (path === "/profile/password") {
-      const auth = { ...state.passwords[user.id] };
-      if (
-        (await hashPassword(String(body.currentPassword ?? ""), auth.salt)) !==
-        auth.hash
-      )
-        fail(422, "INVALID_PASSWORD", "Senha atual incorreta.", {
-          currentPassword: "Senha incorreta.",
-        });
-      if (
-        String(body.newPassword ?? "").length < 8 ||
-        !/[A-Z]/.test(body.newPassword) ||
-        !/[0-9]/.test(body.newPassword)
-      )
-        fail(
-          422,
-          "WEAK_PASSWORD",
-          "A nova senha deve ter 8 caracteres, uma letra maiúscula e um número.",
-          { newPassword: "Senha muito fraca." },
-        );
-      if (
-        body.confirmPassword !== undefined &&
-        body.newPassword !== body.confirmPassword
-      )
-        fail(422, "PASSWORD_MISMATCH", "As senhas precisam ser iguais.", {
-          confirmPassword: "As senhas precisam ser iguais.",
-        });
-      const salt = crypto.randomUUID(),
-        hash = await hashPassword(body.newPassword, salt);
-      const current = state.passwords[user.id];
-      if (current.salt !== auth.salt || current.hash !== auth.hash)
-        fail(
-          409,
-          "PASSWORD_CHANGED",
-          "Sua senha foi alterada por outra solicitação. Informe a senha atual e tente novamente.",
-          { currentPassword: "A senha foi alterada. Informe a senha atual." },
-        );
-      state.passwords[user.id] = { salt, hash };
-      save();
-      return {};
     }
     if (path === "/profile") {
       if (method === "PATCH") {
@@ -1134,17 +1206,48 @@ export function createBackend({
     }
     return fail(404, "NOT_FOUND", "Recurso não encontrado.");
   }
-  save();
-  schedulePending();
+  // Bootstrap is itself coordinated: opening a tab never writes its pre-lock
+  // snapshot over a login or an order committed by another tab.
+  const ready = transaction(() => {
+    if (!disposed) save();
+  });
+  async function request(
+    method: string,
+    path: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- The synchronous dispatcher validates route bodies.
+    body: any = {},
+    context: RequestContext = {},
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Routes expose heterogeneous public DTOs.
+  ): Promise<any> {
+    if (path === "/session/login" && method === "POST")
+      return login(
+        String(body.email ?? ""),
+        String(body.password ?? ""),
+        context,
+      );
+    if (path === "/session/register" && method === "POST")
+      return register(body, context);
+    if (path === "/profile/password")
+      return changePassword(method, body, context);
+    return transaction(() => dispatch(method, path, body, context));
+  }
   return {
+    ready,
     request,
-    state: () => ({ scenario: state.scenario, connected: state.connected }),
+    state: () => {
+      const current = view();
+      return { scenario: current.scenario, connected: current.connected };
+    },
     socketUser: (token?: string) => {
-      try {
-        return authenticate({ token }, false)?.id;
-      } catch {
+      const current = view();
+      const session = token ? current.sessions[token] : undefined;
+      if (
+        !session ||
+        session.expiresAt <= now() ||
+        current.scenario === "expired-session"
+      )
         return undefined;
-      }
+      return current.users.find((user) => user.id === session.userId)?.id;
     },
     subscribe: (
       listener: (name: EventName, event: Event, userId?: string) => void,
@@ -1161,6 +1264,7 @@ export function createBackend({
       };
     },
     dispose: () => {
+      disposed = true;
       timers.forEach(clearTimeout);
       timers.clear();
       listeners.clear();

@@ -50,6 +50,7 @@ api.interceptors.response.use(
     if (
       axios.isAxiosError(error) &&
       error.response?.status === 401 &&
+      error.response.data?.code !== "INVALID_CREDENTIALS" &&
       getToken() &&
       error.config?.headers?.get("Authorization") === `Bearer ${getToken()}`
     ) {
