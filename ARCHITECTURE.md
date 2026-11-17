@@ -86,11 +86,15 @@ No checkout, rede e endereço vêm da carteira cadastrada; o provedor escolhido 
 
 Há labels associados, erros por campo, foco visível, link para pular ao conteúdo, diálogos com captura/restauração de foco, feedback `aria-live` e suporte a movimento reduzido. Skeletons preservam a geometria de cards, carrinho e cotação. O limite de quantidade é validado novamente no servidor simulado.
 
+Ao entrar pelo cabeçalho do carrinho, o login retorna a `/cart`; ao usar “Conectar e finalizar”, mantém `/checkout` como destino. No desktop, esses fluxos mostram o carrinho atrás do diálogo, e fechar retorna ao carrinho. A validação de redirecionamento local continua aplicada. Os controles de quantidade seguem as medidas arquivadas: 20×30 px no desktop e 24×24 px no mobile, com símbolos centralizados.
+
 ## Evidências e publicação
 
 Testes de domínio cobrem precisão, isolamento, estoque, idempotência, imutabilidade e versões. Testes de rede usam os handlers reais MSW. Playwright cobre os doze grupos do desafio em desktop/mobile, incluindo falhas e recuperação, além da geometria de tablet e regressões visuais das quatro páginas principais.
 
-Validação final de 17/11/2026: **56 testes unitários/de rede e 100 E2E passaram**, assim como lint, verificação de tipos e build. A rodada integral no build de produção usou um worker e registrou zero falhas, retries, casos instáveis ou skips. As oito regressões visuais passaram sem atualização de snapshots durante essa rodada. Antes dela, duas baselines foram revistas e atualizadas para a galeria quadrada e os 12 px entre texto e ação nos banners. Os 30 novos casos E2E incluem navegação/scroll, estabilidade da imagem, rascunhos/avatar e login social/cancelamento; os 14 novos unitários incluem ENS e sessões sociais. O [HTML completo](reports/e2e/index.html) está versionado; os traces são retidos automaticamente quando há falhas.
+Na versão `c5290eb`, **56 testes unitários/de rede e 100 E2E passaram**, com lint, verificação de tipos e build. A rodada integral de produção usou um worker e registrou zero falhas, retries, casos instáveis ou skips, incluindo as oito comparações visuais. Antes dela, duas baselines foram revistas para a galeria quadrada e os 12 px entre texto e ação nos banners.
+
+A revisão posterior do carrinho passou novamente pelos **56 unitários e por 50 E2E selecionados**, além de lint, verificação de tipos e build. A seleção cobre conta/acessibilidade, autenticação/carrinho, condições de corrida de sessão, login social, oito novos casos de retorno do login e oito comparações visuais. A rodada de produção terminou sem falhas, retries, casos instáveis ou skips; não atualizou snapshots. As duas baselines do carrinho foram revistas antes dela para os controles de quantidade. O [HTML dessa rodada de 50 casos](reports/e2e/index.html) está versionado; os traces são retidos automaticamente quando há falhas.
 
 ### Lighthouse
 

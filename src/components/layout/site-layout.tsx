@@ -126,7 +126,13 @@ export function Header() {
           <ShoppingCart />
           {count > 0 && <span>{count}</span>}
         </Link>
-        <Link className="solid-link" to={user ? "/account" : "/login"}>
+        <Link
+          className="solid-link"
+          to={user ? "/account" : "/login"}
+          search={
+            !user && pathname === "/cart" ? { redirect: "/cart" } : undefined
+          }
+        >
           <LogIn size={16} />
           {user ? "Conta" : "Entrar"}
         </Link>

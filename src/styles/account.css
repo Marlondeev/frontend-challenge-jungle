@@ -351,10 +351,12 @@
   place-items: center;
   color: #140d0a;
   background: #d28a4c;
-  padding: 3px 1px;
+  padding: 0;
   cursor: pointer;
+  width: 20px;
   min-width: 20px;
   height: 30px;
+  flex: none;
 }
 .cart-quantity button:disabled {
   opacity: 0.35;
@@ -1161,12 +1163,11 @@
     padding: 5px 0;
   }
   .cart-quantity button {
-    width: 23px;
-    height: 23px;
-    min-width: 23px;
-    padding: 2px;
-    border: 1px solid #4a2a1b;
-    background: #382116;
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    border: 1px solid #3f2319;
+    background: #2f1d15;
     color: #f7f3ec;
   }
   .cart-quantity output {

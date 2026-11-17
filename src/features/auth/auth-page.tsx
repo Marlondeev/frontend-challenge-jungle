@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { X } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -12,11 +19,18 @@ import { validLocalRedirect } from "@/features/checkout/purchase-state";
 import { SocialDemoButton } from "./social-demo-button";
 import "@/styles/account.css";
 
+const CartBackground = lazy(() =>
+  import("@/features/cart/cart-page").then((module) => ({
+    default: module.CartPage,
+  })),
+);
+
 export function AuthPage({ mode }: { mode: "login" | "register" }) {
   const auth = useAuth();
   const navigate = useNavigate();
   const search = useSearch({ strict: false }) as { redirect?: string };
   const redirect = validLocalRedirect(search.redirect);
+  const purchaseContext = /^\/(?:cart|checkout)(?:[?#]|$)/.test(redirect);
   const [desktop, setDesktop] = useState(
     () => window.matchMedia("(min-width: 769px)").matches,
   );
@@ -225,14 +239,20 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
   return desktop ? (
     <>
       <div className="auth-background">
-        <CatalogPage />
+        {purchaseContext ? (
+          <Suspense fallback={null}>
+            <CartBackground />
+          </Suspense>
+        ) : (
+          <CatalogPage />
+        )}
       </div>
       <Dialog.Root
         open
         onOpenChange={(open) => {
           if (!open) {
             submission.current?.abort();
-            void navigate({ to: "/" });
+            void navigate({ to: purchaseContext ? "/cart" : "/" });
           }
         }}
       >
