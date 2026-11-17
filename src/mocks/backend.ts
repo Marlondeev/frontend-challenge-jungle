@@ -1,5 +1,6 @@
 import type {
   ApiErrorBody,
+  AuthResult,
   Cart,
   CatalogResponse,
   CatalogSearch,
@@ -117,7 +118,10 @@ interface State {
   nfts: Nft[];
   users: User[];
   passwords: Record<string, Auth>;
-  sessions: Record<string, { userId: string; expiresAt: number }>;
+  sessions: Record<
+    string,
+    { userId: string; expiresAt: number; pendingVisitorId?: string }
+  >;
   carts: Record<string, Cart>;
   favorites: Record<string, string[]>;
   wallets: Record<string, Wallet[]>;
@@ -230,10 +234,17 @@ export function createBackend({
         "Sua sessão expirou. Entre novamente.",
       );
     }
-    return (
+    const user =
       state.users.find((user) => user.id === session.userId) ??
-      fail(401, "UNAUTHORIZED", "Sessão inválida.")
-    );
+      fail(401, "UNAUTHORIZED", "Sessão inválida.");
+    // MSW's browser transport cannot forward the caller's AbortSignal. A demo
+    // token abandoned by the UI must not consume the visitor's guest cart.
+    if (session.pendingVisitorId !== undefined) {
+      const visitorId = session.pendingVisitorId;
+      delete session.pendingVisitorId;
+      mergeGuestCart(user.id, visitorId);
+    }
+    return user;
   };
   const owner = (context: RequestContext) =>
     authenticate(context, false)?.id ??
@@ -459,9 +470,28 @@ export function createBackend({
       fail(401, "INVALID_CREDENTIALS", "E-mail ou senha incorretos.", {
         email: "Confira suas credenciais.",
       });
-    const authenticated = user!,
-      source = cartFor(`guest:${context.visitorId ?? "anonymous"}`),
-      target = cartFor(authenticated.id);
+    return issueSession(user!, context);
+  }
+  function socialDemo(provider: unknown, context: RequestContext) {
+    if (provider !== "google" && provider !== "facebook")
+      return fail(
+        422,
+        "INVALID_SOCIAL_PROVIDER",
+        "Escolha Google ou Facebook para a demonstração.",
+      );
+    const fixtureId = provider === "google" ? "user-collector" : "user-nova";
+    const user = state.users.find((entry) => entry.id === fixtureId);
+    if (!user)
+      return fail(
+        503,
+        "SOCIAL_DEMO_UNAVAILABLE",
+        "O perfil fictício desta demonstração está indisponível. Tente novamente após restaurar os dados de teste.",
+      );
+    return issueSession(user, context, true);
+  }
+  function mergeGuestCart(userId: string, visitorId: string) {
+    const source = cartFor(`guest:${visitorId}`),
+      target = cartFor(userId);
     for (const item of source.items) {
       const stock =
         nft(item.nftId).editions.find((ed) => ed.id === item.editionId)
@@ -483,9 +513,21 @@ export function createBackend({
     source.coupon = null;
     touch(source);
     touch(target);
+  }
+  function issueSession(
+    authenticated: User,
+    context: RequestContext,
+    deferGuestMerge = false,
+  ): AuthResult {
+    const visitorId = context.visitorId ?? "anonymous";
+    if (!deferGuestMerge) mergeGuestCart(authenticated.id, visitorId);
     const token = crypto.randomUUID(),
       expiresAt = now() + 3600000;
-    state.sessions[token] = { userId: authenticated.id, expiresAt };
+    state.sessions[token] = {
+      userId: authenticated.id,
+      expiresAt,
+      ...(deferGuestMerge ? { pendingVisitorId: visitorId } : {}),
+    };
     save();
     return {
       token,
@@ -587,6 +629,8 @@ export function createBackend({
         String(body.password ?? ""),
         context,
       );
+    if (path === "/session/social-demo" && method === "POST")
+      return socialDemo(body.provider, context);
     if (path === "/session/register" && method === "POST") {
       const fields: Record<string, string> = {};
       const email = String(body.email ?? "")
@@ -899,7 +943,7 @@ export function createBackend({
         network: body.network,
         provider: body.provider,
         primary: !!body.primary,
-        ...(body.ens ? { ens: body.ens } : {}),
+        ...(body.ens !== undefined ? { ens: String(body.ens).trim() } : {}),
       };
       if (!wallets.length) wallet.primary = true;
       if (wallet.primary)
@@ -910,7 +954,7 @@ export function createBackend({
       else wallets.push(wallet);
       if (!wallets.some((entry) => entry.primary)) wallets[0].primary = true;
       save();
-      return clone(wallet);
+      return clone(existing ?? wallet);
     }
     if (path === "/orders" && method === "POST") {
       const input = body as PlaceOrderInput,

@@ -6,6 +6,7 @@ import {
   Link,
   Navigate,
   Outlet,
+  lazyRouteComponent,
   useRouterState,
 } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
@@ -18,10 +19,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { DemoTools } from "@/features/demo/demo-tools";
 
-const CatalogPage = lazy(() =>
-  import("@/features/catalog/catalog-page").then((m) => ({
-    default: m.CatalogPage,
-  })),
+const CatalogPage = lazyRouteComponent(
+  () => import("@/features/catalog/catalog-page"),
+  "CatalogPage",
 );
 const FavoritesPage = lazy(() =>
   import("@/features/catalog/catalog-page").then((m) => ({
@@ -205,7 +205,7 @@ const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   validateSearch: validateCatalogSearch,
-  component: () => <CatalogPage />,
+  component: CatalogPage,
 });
 const nftRoute = createRoute({
   getParentRoute: () => rootRoute,

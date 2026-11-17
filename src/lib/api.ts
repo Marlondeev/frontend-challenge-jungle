@@ -12,6 +12,7 @@ import type {
   Quote,
   RegisterInput,
   Session,
+  SocialDemoProvider,
   User,
   Wallet,
 } from "@/domain/types";
@@ -69,6 +70,14 @@ export const sessionApi = {
     (await api.get<Session>("/session", { signal })).data,
   login: async (input: LoginInput, signal?: AbortSignal) =>
     (await api.post<AuthResult>("/session/login", input, { signal })).data,
+  loginSocialDemo: async (provider: SocialDemoProvider, signal?: AbortSignal) =>
+    (
+      await api.post<AuthResult>(
+        "/session/social-demo",
+        { provider },
+        { signal },
+      )
+    ).data,
   register: async (input: RegisterInput, signal?: AbortSignal) =>
     (await api.post<AuthResult>("/session/register", input, { signal })).data,
   logout: async () => {

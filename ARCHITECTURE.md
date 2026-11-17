@@ -26,6 +26,8 @@ O Axios usa `/api`, timeout de 8 segundos e os cabeçalhos `X-Visitor-Id` e `Aut
 | `GET /api/nfts`, `GET /api/nfts/:id`                                         | Catálogo com filtros/paginação e detalhe |
 | `GET /api/session`                                                           | Sessão atual ou visitante                |
 | `POST /api/session/login`, `/register`, `/logout`                            | Autenticação, cadastro e encerramento    |
+| `POST /api/session/social-demo`                                              | Sessão fictícia Google/Facebook no mock  |
+| `POST /api/session/social-demo`                                             | Sessão de perfil fictício Google/Facebook, apenas no mock |
 | `GET /api/cart`                                                              | Carrinho do visitante/usuário            |
 | `POST /api/cart/items`                                                       | Adição por NFT/edição/quantidade         |
 | `PATCH /api/cart/items/:id`, `DELETE /api/cart/items/:id`                    | Alteração/remoção                        |
@@ -40,11 +42,15 @@ O Axios usa `/api`, timeout de 8 segundos e os cabeçalhos `X-Visitor-Id` e `Aut
 
 O estado persistido contém fixtures e alterações por identidade. Senhas usam PBKDF2 com salt; tokens são opacos e expiram. Isso permite avaliar o fluxo, sem transformar localStorage em um mecanismo de segurança adequado a um serviço real. No backend real, senhas e sessões devem permanecer no servidor e tokens devem usar uma estratégia apropriada ao modelo de ameaça.
 
+O login social é uma demonstração explícita, confirmada em diálogo antes de autenticar. O mock associa `google` a `user-collector` e `facebook` a `user-nova` por IDs estáveis; não recebe credenciais externas. A emissão de sessão e a mesclagem do carrinho usam os mesmos helpers do login por senha, que continua validando a senha. Na sessão social, o merge acontece uma única vez na primeira requisição com o token aceito; uma resposta cancelada não consome o carrinho visitante. Sessões antigas continuam compatíveis. Com `VITE_MOCKS=false`, os botões ficam indisponíveis e o cliente não chama o endpoint de demonstração. A integração OAuth real depende de aplicativos Google/Meta e de validação no servidor; os requisitos estão em [docs/social-login.md](docs/social-login.md).
+
 ## Sessão e cache
 
 Chaves públicas: `['catalog', search]`, `['nft', id]`. Chaves privadas incluem a identidade: `['cart', owner]`, `['favorites', owner]`, `['wallets', owner]`, `['order', owner, id]` e `['quote', owner, cartVersion, coupon]`. Login, logout e expiração cancelam/removem consultas privadas. Mutações conferem a identidade atual antes de publicar respostas tardias. O interceptor 401 só expira a sessão quando o token da requisição ainda é o token ativo.
 
 Favoritos atualizam o cache antes da resposta e restauram o valor anterior quando há falha. Catálogo mantém a lista anterior durante filtros enquanto a consulta mais recente está pendente e cancela requisições obsoletas. Carrinho e cotação são reconciliados após mutações e eventos.
+
+No perfil, atualizações de avatar e sessão preservam campos editados localmente. Salvar aplica a normalização do servidor apenas aos valores que não foram editados novamente durante a requisição. Leituras de imagem são canceladas e conferem o ciclo de montagem e a identidade antes de iniciar o PATCH, evitando que um avatar antigo seja enviado com a sessão de outra conta.
 
 Consultas usam 20 segundos de validade e 5 minutos de retenção por padrão, com atualização ao focar a janela. Falhas transitórias recebem no máximo uma repetição; 401, 403, 404, 409 e 422 não são repetidos. Mutações não têm retry automático. Sessão usa 15 segundos de validade, consulta periódica a cada 30 segundos e nenhuma repetição automática; a validade do token no mock é de uma hora.
 
@@ -84,11 +90,11 @@ Há labels associados, erros por campo, foco visível, link para pular ao conte�
 
 Testes de domínio cobrem precisão, isolamento, estoque, idempotência, imutabilidade e versões. Testes de rede usam os handlers reais MSW. Playwright cobre os doze grupos do desafio em desktop/mobile, incluindo falhas e recuperação, além da geometria de tablet e regressões visuais das quatro páginas principais.
 
-Validação final de 17/11/2026: **42 testes unitários/de rede e 70 E2E passaram**, assim como lint e build com TypeScript. A rodada integral no build de produção usou um worker, terminou em 6 minutos e registrou zero falhas, retries ou skips. As oito regressões visuais passaram sem atualização de snapshots durante essa rodada. O [HTML completo](reports/e2e/index.html) está versionado; os traces são retidos automaticamente quando há falhas.
+Validação final de 17/11/2026: **56 testes unitários/de rede e 100 E2E passaram**, assim como lint, verificação de tipos e build. A rodada integral no build de produção usou um worker e registrou zero falhas, retries, casos instáveis ou skips. As oito regressões visuais passaram sem atualização de snapshots durante essa rodada. Antes dela, duas baselines foram revistas e atualizadas para a galeria quadrada e os 12 px entre texto e ação nos banners. Os 30 novos casos E2E incluem navegação/scroll, estabilidade da imagem, rascunhos/avatar e login social/cancelamento; os 14 novos unitários incluem ENS e sessões sociais. O [HTML completo](reports/e2e/index.html) está versionado; os traces são retidos automaticamente quando há falhas.
 
 ### Lighthouse
 
-Foram executadas três medições por página/perfil, em build otimizado com todos os assets, fontes, mocks e funcionalidades. Os [12 relatórios HTML/JSON](lighthouse/reports/SUMMARY.md) e o [ambiente completo](lighthouse/reports/summary.json) estão versionados. Ambiente: Windows build 26300 x64, Intel i5-13420H, 24 GiB, Node 24.15.0, Playwright 1.65.1, Chromium 159 e Lighthouse 13.6.0; perfis padrão de simulação mobile/desktop, navegador novo por medição.
+Na versão inicial `d5c8ddd`, foram executadas três medições por página/perfil, em build otimizado com todos os assets, fontes, mocks e funcionalidades. Os [12 relatórios HTML/JSON](lighthouse/reports/SUMMARY.md) e o [ambiente completo](lighthouse/reports/summary.json) estão versionados. Eles antecedem as correções de navegação, galeria e login social, sem nova medição dessas alterações. Ambiente: Windows build 26300 x64, Intel i5-13420H, 24 GiB, Node 24.15.0, Playwright 1.65.1, Chromium 159 e Lighthouse 13.6.0; perfis padrão de simulação mobile/desktop, navegador novo por medição.
 
 | Página  | Perfil  | Performance | Acessibilidade | Boas práticas | SEO | LCP ms |    CLS | TBT ms |
 | ------- | ------- | ----------: | -------------: | ------------: | --: | -----: | -----: | -----: |

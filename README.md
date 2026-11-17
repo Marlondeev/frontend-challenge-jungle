@@ -31,6 +31,8 @@ O build estático fica em `dist/`. Os mocks permanecem ativos no build de demons
 
 É possível criar outras contas. O cupom `KURIO10` concede 10% de desconto. Cada conta possui dados próprios; o carrinho visitante é mesclado no login, respeitando o estoque.
 
+Os botões Google e Facebook abrem uma confirmação de **login de demonstração**: Google usa o perfil fictício Colecionador, e Facebook usa Nova. A confirmação cria uma sessão normal do mock, com persistência e mesclagem do carrinho visitante. Nenhuma conta externa é acessada. Para os requisitos de uma integração real, consulte [docs/social-login.md](docs/social-login.md).
+
 - `/`: busca, coleções, rede, preço, abas, ordenação e paginação combinados na URL.
 - `/nft/emerald-ape-042`: galeria, edição, quantidade, favoritos e compra.
 - `/cart`: quantidades, remoção, cupom e totais calculados.
@@ -67,13 +69,13 @@ npm.cmd run test:e2e
 
 As oito baselines em `tests/e2e/visual.spec.ts-snapshots/` foram conferidas contra o PDF e capturadas no Windows com o Chromium do Playwright fixado no lockfile. As comparações são executadas por padrão. Mudanças intencionais exigem revisão visual antes de `npm run test:visual -- --update-snapshots`; outro sistema operacional pode exigir baselines próprias por diferenças de rasterização. Não atualize snapshots para ocultar regressões.
 
-Validação final de 17/11/2026: **42 testes unitários/de rede e 70 E2E passaram**, incluindo as oito comparações visuais. A rodada E2E usou o build de produção, um worker, nenhum retry/skip e terminou em 6 minutos. Lint, verificação de tipos e build também passaram. O [relatório HTML completo](reports/e2e/index.html) está incluído; abra com `npx playwright show-report reports/e2e`.
+Validação final de 17/11/2026: **56 testes unitários/de rede e 100 E2E passaram**, incluindo as oito comparações visuais. A rodada E2E usou o build de produção, um worker e nenhum retry/skip. Lint, verificação de tipos e build também passaram. As regressões adicionais cobrem seleção do header, posição da tela nos filtros, retorno ao mercado, tamanho da arte no carrinho, rascunhos/avatar, edição de ENS e login social de demonstração com cancelamento seguro. Duas baselines foram atualizadas após revisão das mudanças intencionais de galeria e espaçamento; a rodada completa comparou sem atualizar snapshots. O [relatório HTML completo](reports/e2e/index.html) está incluído; abra com `npx playwright show-report reports/e2e`.
 
 O comando de auditoria exige um build prévio e executa Lighthouse três vezes em início/detalhe e mobile/desktop, usando um Chromium novo por medição. Relatórios HTML/JSON, medianas, LCP, CLS, TBT e informações do ambiente ficam em `lighthouse/reports/`. As metas são 90/95/95/90 para Performance/Acessibilidade/Boas práticas/SEO. Resultados e eventuais desvios são documentados em [ARCHITECTURE.md](ARCHITECTURE.md).
 
 A auditoria inicia seu próprio preview na porta 4173. Se já houver um preview aberto, use `AUDIT_BASE_URL=http://127.0.0.1:4173`; em PowerShell, defina `$env:AUDIT_BASE_URL` antes do comando.
 
-As medianas finais foram **99 de Performance no desktop e 58–59 no mobile; 100 em Acessibilidade, Boas práticas e SEO** nos dois perfis. Performance mobile ficou abaixo da meta e está descrita com métricas, investigação e limitações em [ARCHITECTURE.md](ARCHITECTURE.md). Consulte o [resumo dos 12 relatórios](lighthouse/reports/SUMMARY.md).
+Na auditoria da versão inicial `d5c8ddd`, as medianas foram **99 de Performance no desktop e 58–59 no mobile; 100 em Acessibilidade, Boas práticas e SEO** nos dois perfis. Esses relatórios antecedem as correções de navegação, galeria e login social. Performance mobile ficou abaixo da meta e está descrita com métricas, investigação e limitações em [ARCHITECTURE.md](ARCHITECTURE.md). Consulte o [resumo dos 12 relatórios](lighthouse/reports/SUMMARY.md).
 
 ## Decisões e referências
 
@@ -81,7 +83,7 @@ A arquitetura e os contratos estão em [ARCHITECTURE.md](ARCHITECTURE.md). O pro
 
 O arquivo Figma, PDF, imagens originais, especificações e estilos foram preservados localmente em `design-reference/`, com índice offline em `design-reference/index.html`. Esse acervo de aproximadamente 145 MB não integra o repositório da aplicação. Os assets otimizados necessários à execução e as licenças das fontes estão em `public/assets/`.
 
-Totais, disponibilidade e contagens refletem dados consistentes da simulação, inclusive onde o PDF usa exemplos divergentes. Os estados de erro, revisão, conexão e recuperação completam os fluxos exigidos. Login social, recuperação por e-mail e conteúdos editoriais externos exibem feedback explícito de indisponibilidade na demonstração.
+Totais, disponibilidade e contagens refletem dados consistentes da simulação, inclusive onde o PDF usa exemplos divergentes. Os estados de erro, revisão, conexão e recuperação completam os fluxos exigidos. Recuperação por e-mail e conteúdos editoriais externos exibem feedback explícito de indisponibilidade na demonstração; o login social usa perfis fictícios identificados antes da confirmação.
 
 ## Publicação
 

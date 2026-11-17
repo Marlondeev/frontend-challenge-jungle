@@ -93,7 +93,7 @@ export function PageHeading({
       <nav className="account-breadcrumb" aria-label="Caminho">
         <Link to="/">Início</Link>
         <span>/</span>
-        <Link to="/">Mercado</Link>
+        <Link to="/" hash="mercado">Mercado</Link>
         <span>/</span>
         <span>{title}</span>
       </nav>

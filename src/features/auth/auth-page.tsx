@@ -9,6 +9,7 @@ import { notify } from "@/components/ui/toast";
 import { CatalogPage } from "@/features/catalog/catalog-page";
 import { Field, PasswordField } from "@/features/account/account-ui";
 import { validLocalRedirect } from "@/features/checkout/purchase-state";
+import { SocialDemoButton } from "./social-demo-button";
 import "@/styles/account.css";
 
 export function AuthPage({ mode }: { mode: "login" | "register" }) {
@@ -196,24 +197,20 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
         <span>Ou continue com</span>
       </div>
       <div className="auth-social">
-        {["Google", "Facebook"].map((provider, i) => (
-          <Button
-            variant="outline"
+        {(["google", "facebook"] as const).map((provider) => (
+          <SocialDemoButton
             key={provider}
-            onClick={() =>
-              notify(
-                `O acesso com ${provider} não está conectado nesta demonstração. Entre com e-mail e senha.`,
-                "info",
-              )
-            }
-          >
-            <span aria-hidden="true" className={`social-logo social-${i}`}>
-              {i ? "f" : "G"}
-            </span>
-            Continuar com {provider}
-          </Button>
+            provider={provider}
+            redirect={redirect}
+          />
         ))}
       </div>
+      {import.meta.env.VITE_MOCKS === "false" && (
+        <p id="social-demo-unavailable" className="mt-3 text-xs text-secondary">
+          O login social de demonstração está indisponível neste ambiente. O
+          acesso a contas reais depende da configuração do Google e da Meta.
+        </p>
+      )}
       <p className="auth-switch">
         {mode === "login" ? "Novo na Kurio?" : "Já tem uma conta?"}{" "}
         <Link

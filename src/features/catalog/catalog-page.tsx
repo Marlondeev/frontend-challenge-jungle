@@ -201,13 +201,22 @@ export function CatalogPage() {
         navigate({
           to: "/",
           search: (previous) => ({ ...previous, q: q || undefined, page: 1 }),
+          hash: "mercado",
+          resetScroll: false,
+          hashScrollIntoView: false,
         }),
       250,
     );
     return () => clearTimeout(timer);
   }, [q, search.q, navigate]);
   const change = (s: Partial<CatalogSearch>) =>
-    navigate({ to: "/", search: { ...search, ...s, page: 1 } });
+    navigate({
+      to: "/",
+      search: { ...search, ...s, page: 1 },
+      hash: "mercado",
+      resetScroll: false,
+      hashScrollIntoView: false,
+    });
   const data = result.data;
   const pages = Math.ceil((data?.total ?? 0) / (data?.pageSize || 9));
   return (
@@ -250,9 +259,9 @@ export function CatalogPage() {
               Descubra NFTs selecionados de criadores do mundo todo.
             </span>
           </p>
-          <a className="hero-cta" href="#mercado">
+          <Link className="hero-cta" to="/" hash="mercado" search={true}>
             EXPLORAR <span>→</span>
-          </a>
+          </Link>
         </div>
         <div className="hero-art">
           <ArtworkImage
@@ -363,7 +372,11 @@ export function CatalogPage() {
                     (search.page ?? 1) === i + 1 ? "page" : undefined
                   }
                   onClick={() =>
-                    navigate({ to: "/", search: { ...search, page: i + 1 } })
+                    navigate({
+                      to: "/",
+                      search: { ...search, page: i + 1 },
+                      hash: "mercado",
+                    })
                   }
                 >
                   {i + 1}
@@ -413,9 +426,9 @@ export function CatalogPage() {
             <div>
               <h3>{item.title}</h3>
               <p>{item.copy}</p>
-              <a className="solid-link" href="#mercado">
+              <Link className="solid-link" to="/" hash="mercado" search={true}>
                 Explorar →
-              </a>
+              </Link>
             </div>
           </div>
         ))}

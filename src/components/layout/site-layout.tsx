@@ -1,4 +1,9 @@
-import { Link, useNavigate, useSearch } from "@tanstack/react-router";
+import {
+  Link,
+  useNavigate,
+  useRouterState,
+  useSearch,
+} from "@tanstack/react-router";
 import {
   Search,
   ShoppingCart,
@@ -17,6 +22,11 @@ export function Header() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const navigate = useNavigate();
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const marketplaceFlow =
+    /^\/(?:nft\/|cart$|checkout$|order\/|favorites$)/.test(pathname);
   const cart = useCart();
   const { user } = useAuth();
   const search = useSearch({ strict: false }) as { q?: string };
@@ -28,19 +38,67 @@ export function Header() {
         KURIO
       </Link>
       <nav aria-label="Navegação principal">
-        <Link to="/" activeOptions={{ exact: true }}>
+        <Link
+          to="/"
+          hash=""
+          search={true}
+          activeOptions={{
+            exact: true,
+            includeHash: true,
+            includeSearch: false,
+          }}
+        >
           Início
         </Link>
-        <a href="/#mercado">Mercado</a>
-        <a href="/#criadores">Criadores</a>
-        <a href="/#aprenda">Aprenda</a>
+        <Link
+          to="/"
+          hash="mercado"
+          search={true}
+          activeOptions={{
+            exact: true,
+            includeHash: true,
+            includeSearch: false,
+          }}
+          className={marketplaceFlow ? "active" : undefined}
+          aria-current={marketplaceFlow ? "page" : undefined}
+        >
+          Mercado
+        </Link>
+        <Link
+          to="/"
+          hash="criadores"
+          search={true}
+          activeOptions={{
+            exact: true,
+            includeHash: true,
+            includeSearch: false,
+          }}
+        >
+          Criadores
+        </Link>
+        <Link
+          to="/"
+          hash="aprenda"
+          search={true}
+          activeOptions={{
+            exact: true,
+            includeHash: true,
+            includeSearch: false,
+          }}
+        >
+          Aprenda
+        </Link>
       </nav>
       <div className="header-actions">
         {open && (
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              navigate({ to: "/", search: { q: query, page: 1 } });
+              navigate({
+                to: "/",
+                search: { q: query, page: 1 },
+                hash: "mercado",
+              });
               setOpen(false);
             }}
           >
@@ -189,7 +247,13 @@ export function MobileNav() {
       <Link to="/favorites" aria-label="Favoritos">
         <Heart />
       </Link>
-      <Link to="/" className="mobile-nav-center" aria-label="Explorar NFTs">
+      <Link
+        to="/"
+        hash="mercado"
+        search={true}
+        className="mobile-nav-center"
+        aria-label="Explorar NFTs"
+      >
         <ScanLine />
       </Link>
       <Link to="/cart" aria-label="Carrinho">

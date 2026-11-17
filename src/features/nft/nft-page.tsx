@@ -60,7 +60,9 @@ export function NftPage({ id }: { id: string }) {
           {nft.isError ? errorMessage(nft.error) : "Não encontramos este NFT."}
         </p>
         <button onClick={() => nft.refetch()}>Tentar novamente</button>{" "}
-        <Link to="/">Voltar ao mercado</Link>
+        <Link to="/" hash="mercado">
+          Voltar ao mercado
+        </Link>
       </div>
     );
   const item = nft.data;
@@ -87,7 +89,7 @@ export function NftPage({ id }: { id: string }) {
   return (
     <div className="wrap nft-detail">
       <div className="detail-mobile-top">
-        <Link to="/" aria-label="Voltar ao mercado">
+        <Link to="/" hash="mercado" aria-label="Voltar ao mercado">
           <ArrowLeft />
         </Link>
         <button
@@ -98,7 +100,7 @@ export function NftPage({ id }: { id: string }) {
         </button>
       </div>
       <div className="breadcrumb">
-        <Link to="/">Início</Link> / Mercado
+        <Link to="/">Início</Link> / <Link to="/" hash="mercado">Mercado</Link>
       </div>
       <div className="detail-main">
         <div className="gallery">

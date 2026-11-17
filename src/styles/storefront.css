@@ -427,6 +427,9 @@
   font-size: 12px;
   line-height: 1.7;
 }
+.promo .solid-link {
+  margin-top: 12px;
+}
 .editorial {
   margin-top: 96px;
   text-align: center;
@@ -533,6 +536,8 @@
   display: grid;
   grid-template-columns: 100px 1fr;
   gap: 24px;
+  align-items: start;
+  align-self: start;
 }
 .thumbnails {
   display: flex;
@@ -556,6 +561,7 @@
 }
 .detail-image {
   background: #241612;
+  aspect-ratio: 1;
   padding: 20px;
   border-radius: 8px;
   overflow: hidden;

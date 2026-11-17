@@ -13,6 +13,7 @@ import type {
   LoginInput,
   RegisterInput,
   Session,
+  SocialDemoProvider,
   User,
 } from "@/domain/types";
 import { getToken, sessionApi, setToken } from "./api";
@@ -33,6 +34,10 @@ interface AuthContextValue {
   isLoading: boolean;
   error: unknown;
   login(input: LoginInput, signal?: AbortSignal): Promise<User>;
+  loginSocialDemo(
+    provider: SocialDemoProvider,
+    signal?: AbortSignal,
+  ): Promise<User>;
   register(input: RegisterInput, signal?: AbortSignal): Promise<User>;
   logout(): Promise<void>;
 }
@@ -120,6 +125,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ),
     [authenticate],
   );
+  const loginSocialDemo = useCallback(
+    (provider: SocialDemoProvider, signal?: AbortSignal) =>
+      authenticate(
+        (requestSignal) => sessionApi.loginSocialDemo(provider, requestSignal),
+        signal,
+      ),
+    [authenticate],
+  );
   const logout = useCallback(async () => {
     const version = supersede();
     const token = getToken();
@@ -173,10 +186,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading: session.isPending,
       error: session.error,
       login,
+      loginSocialDemo,
       register,
       logout,
     }),
-    [session.data, session.isPending, session.error, login, register, logout],
+    [
+      session.data,
+      session.isPending,
+      session.error,
+      login,
+      loginSocialDemo,
+      register,
+      logout,
+    ],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -62,6 +62,7 @@ export interface LoginInput {
   email: string;
   password: string;
 }
+export type SocialDemoProvider = "google" | "facebook";
 export interface RegisterInput extends LoginInput {
   username: string;
   confirmPassword?: string;

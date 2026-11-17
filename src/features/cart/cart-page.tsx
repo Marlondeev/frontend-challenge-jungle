@@ -206,7 +206,7 @@ export function CartPage() {
                   Conectar e finalizar
                 </Link>
               </Button>
-              <Link to="/" hash="catalog" className="continue-shopping">
+              <Link to="/" hash="mercado" className="continue-shopping">
                 Continuar explorando
               </Link>
             </aside>
