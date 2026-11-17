@@ -16,7 +16,12 @@ import type {
   User,
   Wallet,
 } from "../domain/types";
-import { nftFixtures, userFixtures, walletFixtures } from "./fixtures";
+import {
+  applyNftFixtureDefaults,
+  nftFixtures,
+  userFixtures,
+  walletFixtures,
+} from "./fixtures";
 
 export interface StorageAdapter {
   getItem(key: string): string | null;
@@ -189,6 +194,7 @@ export function createBackend({
   } catch {
     state = initial();
   }
+  applyNftFixtureDefaults(state.nfts);
   state.eventHistory ??= [];
   const listeners = new Set<
     (name: EventName, event: Event, userId?: string) => void

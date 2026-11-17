@@ -1,7 +1,7 @@
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useQueries } from "@tanstack/react-query";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Heart, Search, SlidersHorizontal, X } from "lucide-react";
+import { ChevronDown, Heart, Search, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Artwork, CatalogSearch, Nft } from "@/domain/types";
 import { useCatalog, useFavorites, useToggleFavorite } from "@/lib/hooks";
@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { catalogApi, errorMessage } from "@/lib/api";
 import { formatEth } from "@/lib/money";
 import { ArtworkImage } from "@/components/ui/artwork";
+import { PriceRangeFilter } from "./price-range-filter";
 import "@/styles/storefront.css";
 
 export function NftCard({ nft }: { nft: Nft }) {
@@ -68,12 +69,7 @@ function Filters({
   categories: Record<string, number>;
   networks: Record<string, number>;
 }) {
-  const [min, setMin] = useState(search.min ?? "");
-  const [max, setMax] = useState(search.max ?? "");
-  useEffect(() => {
-    setMin(search.min ?? "");
-    setMax(search.max ?? "");
-  }, [search.min, search.max]);
+  const [priceReset, setPriceReset] = useState(0);
   return (
     <div className="filters">
       <h3>Coleções</h3>
@@ -96,39 +92,12 @@ function Filters({
           <span>({count})</span>
         </button>
       ))}
-      <h3>Faixa de preço</h3>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          change({ min: min || undefined, max: max || undefined });
-        }}
-      >
-        <div className="price-fields">
-          <label>
-            Mínimo
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={min}
-              onChange={(e) => setMin(e.target.value)}
-              placeholder="0"
-            />
-          </label>
-          <label>
-            Máximo
-            <input
-              type="number"
-              min="0"
-              step="any"
-              value={max}
-              onChange={(e) => setMax(e.target.value)}
-              placeholder="ETH"
-            />
-          </label>
-        </div>
-        <button className="filter-apply">Aplicar</button>
-      </form>
+      <PriceRangeFilter
+        key={priceReset}
+        minimum={search.min}
+        maximum={search.max}
+        onApply={(min, max) => change({ min, max })}
+      />
       <h3>Rede</h3>
       {Object.entries(networks).map(([name, count]) => (
         <button
@@ -150,8 +119,7 @@ function Filters({
       <button
         className="clear-filters"
         onClick={() => {
-          setMin("");
-          setMax("");
+          setPriceReset((value) => value + 1);
           change({
             category: undefined,
             network: undefined,
@@ -187,6 +155,12 @@ const editorials: { art: Artwork; title: string; copy: string }[] = [
     copy: "Proteja sua carteira, seus ativos e sua identidade.",
   },
 ];
+const sortLabels = {
+  recent: "Listados recentemente",
+  "price-asc": "Menor preço",
+  "price-desc": "Maior preço",
+  popular: "Mais populares",
+} as const;
 export function CatalogPage() {
   const search = useSearch({ strict: false }) as CatalogSearch;
   const navigate = useNavigate();
@@ -319,7 +293,10 @@ export function CatalogPage() {
               ))}
             </div>
             <label className="sort">
-              Ordenar por:{" "}
+              <span aria-hidden="true">
+                Ordenar por: {sortLabels[search.sort ?? "recent"]}
+              </span>
+              <ChevronDown size={14} aria-hidden="true" />
               <select
                 aria-label="Ordenar por"
                 value={search.sort ?? "recent"}
@@ -327,10 +304,11 @@ export function CatalogPage() {
                   change({ sort: e.target.value as CatalogSearch["sort"] })
                 }
               >
-                <option value="recent">Listados recentemente</option>
-                <option value="price-asc">Menor preço</option>
-                <option value="price-desc">Maior preço</option>
-                <option value="popular">Mais populares</option>
+                {Object.entries(sortLabels).map(([value, label]) => (
+                  <option value={value} key={value}>
+                    {label}
+                  </option>
+                ))}
               </select>
             </label>
           </div>

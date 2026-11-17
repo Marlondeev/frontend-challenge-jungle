@@ -40,6 +40,8 @@ Os botões Google e Facebook abrem uma confirmação de **login de demonstraçã
 - `/order/:id`: pedido pendente, recusado ou confirmado e comprovante do snapshot.
 - `/login`, `/register`, `/account`, `/account/wallets`, `/favorites`: conta e coleção.
 
+Na faixa de preço, arraste os dois controles e clique em **Aplicar**; os valores em ETH ficam na URL e são restaurados ao atualizar. **Limpar filtros** reinicia também valores ainda não aplicados. Toda a área de **Ordenar por**, incluindo texto e seta, abre as opções. Para experimentar quantidade, abra **Emerald Ape #042**, **Sage Nomad #009** ou **Neon Vessel #552**: eles começam na edição **1/10**, permitindo usar +/−. A edição 1/1 mantém seu limite de uma unidade.
+
 Use **Demonstração**, no canto inferior, para escolher lentidão, indisponibilidade, erros de validação, sessão expirada, cupom inválido/expirado, preço alterado, estoque esgotado, pagamento recusado e timeout após criação do pedido. O mesmo painel interrompe/restaura o Socket.IO e envia eventos duplicados ou antigos.
 
 **Restaurar demonstração** apaga o banco simulado deste navegador e recupera as fixtures. As contas, sessões, carteiras, favoritos, carrinhos e pedidos persistem em localStorage; rascunhos e tentativas de compra ficam em sessionStorage e são vinculados ao usuário. Cada navegador tem seu banco independente.
@@ -71,7 +73,7 @@ As oito baselines em `tests/e2e/visual.spec.ts-snapshots/` foram conferidas cont
 
 Validação integral da versão `c5290eb`, em 17/11/2026: **56 testes unitários/de rede e 100 E2E passaram**, incluindo as oito comparações visuais. A rodada usou o build de produção, um worker e nenhum retry/skip. As regressões cobrem seleção do header, posição da tela nos filtros, retorno ao mercado, tamanho da arte no carrinho, rascunhos/avatar, edição de ENS e login social de demonstração com cancelamento seguro.
 
-Na revisão seguinte do carrinho, **56 unitários e 50 E2E selecionados passaram**, com lint, verificação de tipos e build. Essa rodada de produção cobriu conta, autenticação, carrinho, login social, oito casos de retorno do login e as oito comparações visuais, com um worker e zero falhas/retries/skips. Os controles de quantidade foram conferidos em 390/768/1440 px; as duas baselines do carrinho foram atualizadas após revisão visual. O [relatório HTML desta rodada de 50 casos](reports/e2e/index.html) está incluído; abra com `npx playwright show-report reports/e2e`.
+Na revisão mais recente de preço, estoque e ordenação, **57 unitários e 54 E2E selecionados passaram**, com lint, verificação de tipos e build. A rodada de produção cobriu catálogo, filtros, ordenação, navegação, quantidade, compra, tablet e as oito comparações visuais, com um worker e zero falhas/retries/skips. As baselines de início e detalhe foram revistas para os novos controles e a edição inicial 1/10. O [relatório HTML desta rodada de 54 casos](reports/e2e/index.html) está incluído; abra com `npx playwright show-report reports/e2e`.
 
 O comando de auditoria exige um build prévio e executa Lighthouse três vezes em início/detalhe e mobile/desktop, usando um Chromium novo por medição. Relatórios HTML/JSON, medianas, LCP, CLS, TBT e informações do ambiente ficam em `lighthouse/reports/`. As metas são 90/95/95/90 para Performance/Acessibilidade/Boas práticas/SEO. Resultados e eventuais desvios são documentados em [ARCHITECTURE.md](ARCHITECTURE.md).
 

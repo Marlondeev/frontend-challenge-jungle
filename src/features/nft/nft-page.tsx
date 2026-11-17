@@ -22,25 +22,30 @@ export function NftPage({ id }: { id: string }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { add } = useCartActions();
-  const [editionId, setEditionId] = useState("");
+  const [editionSelection, setEditionSelection] = useState({
+    nftId: id,
+    editionId: "",
+  });
+  const editionId = editionSelection.nftId === id ? editionSelection.editionId : "";
   const [quantity, setQuantity] = useState(1);
   const [tab, setTab] = useState<"details" | "reviews">("details");
   const [message, setMessage] = useState("");
   const [crop, setCrop] = useState(0);
   useEffect(() => {
-    setEditionId("");
     setQuantity(1);
   }, [id]);
   useEffect(() => {
     const editions = nft.data?.editions ?? [];
     const selected =
       editions.find((e) => e.id === editionId && e.stock > 0) ??
+      editions.find((e) => e.id === nft.data?.defaultEditionId && e.stock > 0) ??
       editions.find((e) => e.stock > 0);
-    setEditionId(selected?.id ?? "");
+    if (editionId !== (selected?.id ?? ""))
+      setEditionSelection({ nftId: id, editionId: selected?.id ?? "" });
     setQuantity((current) =>
       selected ? Math.max(1, Math.min(current, selected.stock)) : 1,
     );
-  }, [nft.data?.editions, editionId]);
+  }, [nft.data?.editions, nft.data?.defaultEditionId, editionId, id]);
   if (nft.isLoading)
     return (
       <section
@@ -149,7 +154,7 @@ export function NftPage({ id }: { id: string }) {
                 disabled={!e.stock}
                 aria-pressed={editionId === e.id}
                 onClick={() => {
-                  setEditionId(e.id);
+                  setEditionSelection({ nftId: id, editionId: e.id });
                   setQuantity(1);
                 }}
               >

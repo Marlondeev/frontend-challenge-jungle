@@ -18,6 +18,7 @@ export interface Nft {
   price: string;
   previousPrice?: string;
   editions: Edition[];
+  defaultEditionId?: string;
   rarity?: string;
   rating: number;
   reviews: number;

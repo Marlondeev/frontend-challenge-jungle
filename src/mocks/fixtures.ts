@@ -1,4 +1,19 @@
 import type { Artwork, Network, Nft, User, Wallet } from "../domain/types";
+const demoEditionDefaults: Record<string, string> = {
+  "emerald-ape-042": "ten",
+  "sage-nomad-009": "ten",
+  "neon-vessel-552": "ten",
+};
+
+/** Add presentation defaults to older saves without replacing their stock. */
+export function applyNftFixtureDefaults(nfts: Nft[]) {
+  for (const nft of nfts) {
+    const editionId = demoEditionDefaults[nft.id];
+    if (editionId && nft.defaultEditionId === undefined)
+      nft.defaultEditionId = editionId;
+  }
+}
+
 export const categories = [
   "Arte digital",
   "Fotografia",
@@ -34,6 +49,9 @@ export function nftFixtures(): Nft[] {
       name: row[1],
       artwork: row[2] as Artwork,
       price: row[3],
+      ...(demoEditionDefaults[row[0]]
+        ? { defaultEditionId: demoEditionDefaults[row[0]] }
+        : {}),
       ...(index === 2 ? { previousPrice: "2.29" } : {}),
       description:
         "Uma expressão única de arte e cultura digital. Cada edição faz parte de uma coleção independente, criada para quem vê o mundo de outro jeito.",

@@ -17,6 +17,8 @@ Kurio é uma SPA Vite/React com contratos REST tipados. A apresentação não im
 
 TanStack Router mantém busca, filtros, ordenação, aba e página na URL. Histórico e refresh restauram esse estado. As páginas de conta/compra são carregadas sob demanda. Query administra estado remoto; formulários mantêm apenas edições locais e tentativas ainda não resolvidas.
 
+A faixa de preço usa dois controles nativos com passos de 0,01 ETH. O rascunho só altera a busca ao aplicar; limpar reinicia o rascunho mesmo quando a URL já está sem limites. A ordenação mantém um select nativo sobre toda a área visível, preservando teclado e opções do navegador, com texto alinhado às abas.
+
 ## Rede e persistência
 
 O Axios usa `/api`, timeout de 8 segundos e os cabeçalhos `X-Visitor-Id` e `Authorization: Bearer <token>`. O contrato de erro é `{ message, code, fields?, details? }`. Os handlers MSW delegam ao mesmo domínio usado nos testes Node. O cenário selecionado altera latência/resposta no handler, sem atalhos de sucesso na interface. `/api/__control` continua acessível em falhas para permitir recuperação e reset.
@@ -66,6 +68,8 @@ O transporte é intencionalmente limitado ao WebSocket textual usado nesta demon
 
 Valores monetários trafegam como strings. Aritmética converte ETH para BigInt com 18 casas decimais, incluindo subtotal, desconto, taxa e total. Quantidades são inteiras e o estoque pertence à edição.
 
+`Nft.defaultEditionId` permite sugerir uma edição disponível. Emerald, Sage e Neon preferem `ten`; os demais mantêm o primeiro estoque disponível. Uma seleção manual válida tem precedência, e esgotamento aciona fallback e ajuste de quantidade. Ao carregar dados antigos, o mock adiciona apenas a preferência ausente desses três exemplos, preservando estoques consumidos, versões, carrinhos e contas. Edições 1/1 continuam com estoque unitário.
+
 A cotação registra itens e preços, validade e uma impressão do carrinho/estoque. Antes de confirmar, a interface revalida carrinho e cotação. Alterações pedem nova revisão. A revisão de transporte da cotação não é confundida com alteração comercial: `fingerprint` e versão do carrinho determinam a necessidade de revisar novamente.
 
 Uma chave de idempotência é persistida antes do POST. O servidor associa a chave ao usuário e à intenção; repetições recuperam o mesmo pedido e conteúdo diferente com a mesma chave retorna conflito. No cenário de timeout, o pedido é criado antes de a resposta ultrapassar o timeout do Axios. A interface consulta por chave antes de tentar novamente, inclusive após refresh.
@@ -94,7 +98,7 @@ Testes de domínio cobrem precisão, isolamento, estoque, idempotência, imutabi
 
 Na versão `c5290eb`, **56 testes unitários/de rede e 100 E2E passaram**, com lint, verificação de tipos e build. A rodada integral de produção usou um worker e registrou zero falhas, retries, casos instáveis ou skips, incluindo as oito comparações visuais. Antes dela, duas baselines foram revistas para a galeria quadrada e os 12 px entre texto e ação nos banners.
 
-A revisão posterior do carrinho passou novamente pelos **56 unitários e por 50 E2E selecionados**, além de lint, verificação de tipos e build. A seleção cobre conta/acessibilidade, autenticação/carrinho, condições de corrida de sessão, login social, oito novos casos de retorno do login e oito comparações visuais. A rodada de produção terminou sem falhas, retries, casos instáveis ou skips; não atualizou snapshots. As duas baselines do carrinho foram revistas antes dela para os controles de quantidade. O [HTML dessa rodada de 50 casos](reports/e2e/index.html) está versionado; os traces são retidos automaticamente quando há falhas.
+A revisão mais recente passou pelos **57 unitários e por 54 E2E selecionados**, além de lint, verificação de tipos e build. A seleção cobre catálogo, faixa de preço, área completa da ordenação, navegação, edições e quantidades, estabilidade da imagem, compra/recuperação, tablet e oito comparações visuais. A rodada de produção terminou sem falhas, retries, casos instáveis ou skips; não atualizou snapshots. Antes dela, as baselines de início e detalhe foram revistas para a faixa de preço, alinhamento da ordenação e preferência inicial por 1/10. O [HTML dessa rodada de 54 casos](reports/e2e/index.html) está versionado; os traces são retidos automaticamente quando há falhas.
 
 ### Lighthouse
 
