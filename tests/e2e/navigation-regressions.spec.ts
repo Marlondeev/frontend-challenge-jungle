@@ -1,5 +1,37 @@
 import { test, expect, seedCart } from "./helpers";
 
+test("promo explore returns to the market on repeated same-hash activation", async ({
+  page,
+}) => {
+  await page.goto("/#mercado");
+  await page
+    .getByRole("combobox", { name: "Ordenar por", exact: true })
+    .selectOption("price-desc");
+  await expect(page.locator(".nft-grid .card-name").first()).toHaveText(
+    "Neon Vessel #552",
+  );
+  for (const [index, keyboard] of [
+    [0, false],
+    [1, true],
+    [0, false],
+  ] as const) {
+    const explore = page.locator(".promos .solid-link").nth(index);
+    await explore.scrollIntoViewIfNeeded();
+    if (keyboard) await explore.press("Enter");
+    else await explore.click();
+    await expect
+      .poll(() =>
+        page
+          .locator("#mercado")
+          .evaluate((element) =>
+            Math.abs(element.getBoundingClientRect().top - 24),
+          ),
+      )
+      .toBeLessThan(5);
+    await expect(page).toHaveURL(/sort=price-desc.*#mercado$/);
+  }
+});
+
 async function scrollToMarket(page: import("@playwright/test").Page) {
   await page.locator("#mercado").evaluate((element) => {
     window.scrollTo({

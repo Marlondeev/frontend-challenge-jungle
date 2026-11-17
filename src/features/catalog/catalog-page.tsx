@@ -406,7 +406,32 @@ export function CatalogPage() {
             <div>
               <h3>{item.title}</h3>
               <p>{item.copy}</p>
-              <Link className="solid-link" to="/" hash="mercado" search={true}>
+              <Link
+                className="solid-link"
+                to="/"
+                hash="mercado"
+                search={true}
+                onClick={(event) => {
+                  if (
+                    event.defaultPrevented ||
+                    event.button !== 0 ||
+                    event.ctrlKey ||
+                    event.metaKey ||
+                    event.shiftKey ||
+                    event.altKey ||
+                    (event.currentTarget.target &&
+                      event.currentTarget.target !== "_self") ||
+                    event.currentTarget.href !== window.location.href
+                  )
+                    return;
+                  // Same-URL router reloads retain the filters' disabled hash scrolling.
+                  const market = document.getElementById("mercado");
+                  if (market) {
+                    event.preventDefault();
+                    market.scrollIntoView();
+                  }
+                }}
+              >
                 Explorar →
               </Link>
             </div>
