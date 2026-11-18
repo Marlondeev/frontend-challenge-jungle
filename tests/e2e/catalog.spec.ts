@@ -28,9 +28,20 @@ test("catalogue combines search, collection, network, price and sort in the URL"
       .press("Enter");
   }
   await expect(page).toHaveURL(/q=Emerald/);
-  const panel = await filters(page);
+  const mobile = await page
+    .getByRole("button", { name: "Abrir filtros", exact: true })
+    .isVisible();
+  let panel = await filters(page);
   await panel.getByRole("button", { name: /^Arte digital/ }).click();
+  if (mobile) {
+    await expect(panel).toBeHidden();
+    panel = await filters(page);
+  }
   await panel.getByRole("button", { name: /^Ethereum/ }).click();
+  if (mobile) {
+    await expect(panel).toBeHidden();
+    panel = await filters(page);
+  }
   const minimum = panel.getByRole("slider", {
     name: "Preço mínimo",
     exact: true,

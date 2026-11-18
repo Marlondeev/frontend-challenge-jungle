@@ -3,7 +3,10 @@ import { test, expect, filters, closeFilters } from "./helpers";
 test("clear before applying also resets the draft price handles", async ({
   page,
 }) => {
-  const panel = await filters(page);
+  let panel = await filters(page);
+  const mobile = await page
+    .getByRole("dialog", { name: "Filtros", exact: true })
+    .isVisible();
   const minimum = panel.getByRole("slider", {
     name: "Preço mínimo",
     exact: true,
@@ -13,6 +16,10 @@ test("clear before applying also resets the draft price handles", async ({
   await panel
     .getByRole("button", { name: "Limpar filtros", exact: true })
     .click();
+  if (mobile) {
+    await expect(panel).toBeHidden();
+    panel = await filters(page);
+  }
   await expect(minimum).toHaveValue("2");
   await expect(
     panel.getByRole("slider", { name: "Preço máximo", exact: true }),
@@ -23,6 +30,9 @@ test("price range applies both limits and restores them through refresh and clea
   page,
 }) => {
   let panel = await filters(page);
+  const mobile = await page
+    .getByRole("dialog", { name: "Filtros", exact: true })
+    .isVisible();
   const minimum = panel.getByRole("slider", {
     name: "Preço mínimo",
     exact: true,
@@ -43,7 +53,9 @@ test("price range applies both limits and restores them through refresh and clea
     "Preço: 0,50 – 1,00 ETH",
   );
   expect(new URL(page.url()).searchParams.has("min")).toBe(false);
+  await expect(panel).toBeVisible();
   await panel.getByRole("button", { name: "Aplicar", exact: true }).click();
+  if (mobile) await expect(panel).toBeHidden();
   await closeFilters(page);
   await expect(page.locator(".result-count")).toHaveText("18 NFTs encontrados");
   const params = new URL(page.url()).searchParams;
@@ -68,6 +80,10 @@ test("price range applies both limits and restores them through refresh and clea
   await panel
     .getByRole("button", { name: "Limpar filtros", exact: true })
     .click();
+  if (mobile) {
+    await expect(panel).toBeHidden();
+    panel = await filters(page);
+  }
   await expect(
     panel.getByRole("slider", { name: "Preço mínimo", exact: true }),
   ).toHaveValue("2");
@@ -83,6 +99,9 @@ test("dragging a price handle updates the draft before applying an empty range",
   page,
 }) => {
   const panel = await filters(page);
+  const mobile = await page
+    .getByRole("dialog", { name: "Filtros", exact: true })
+    .isVisible();
   const minimum = panel.getByRole("slider", {
     name: "Preço mínimo",
     exact: true,
@@ -103,7 +122,9 @@ test("dragging a price handle updates the draft before applying an empty range",
     .poll(async () => Number(await minimum.inputValue()))
     .toBeGreaterThan(199);
   expect(new URL(page.url()).searchParams.has("min")).toBe(false);
+  await expect(panel).toBeVisible();
   await panel.getByRole("button", { name: "Aplicar", exact: true }).click();
+  if (mobile) await expect(panel).toBeHidden();
   await closeFilters(page);
   await expect(
     page.getByText("Nenhum NFT encontrado. Experimente alterar os filtros.", {

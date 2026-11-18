@@ -220,6 +220,10 @@ export function CatalogPage() {
       resetScroll: false,
       hashScrollIntoView: false,
     });
+  const changeFromDrawer = (filters: Partial<CatalogSearch>) => {
+    void change(filters);
+    setFilterOpen(false);
+  };
   const data = result.data;
   const pages = Math.ceil((data?.total ?? 0) / (data?.pageSize || 9));
   return (
@@ -394,12 +398,12 @@ export function CatalogPage() {
             <div className="filter-sort">
               <CatalogSort
                 value={search.sort ?? "recent"}
-                onChange={(sort) => change({ sort })}
+                onChange={(sort) => changeFromDrawer({ sort })}
               />
             </div>
             <Filters
               search={search}
-              change={change}
+              change={changeFromDrawer}
               categories={data?.categories ?? {}}
               networks={data?.networks ?? {}}
             />

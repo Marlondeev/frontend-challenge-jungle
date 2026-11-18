@@ -93,10 +93,13 @@ test("catalogue sort and filters preserve the visible market position", async ({
   // Opening the mobile drawer brings its search-bar trigger into view.
   // Record the position after that user action, before sorting changes data.
   const sort = await openSort(page);
+  const drawer = page.getByRole("dialog", { name: "Filtros", exact: true });
+  const mobile = await drawer.isVisible();
   const beforeSort = await page.evaluate(() => window.scrollY);
   await sort
     .getByRole("combobox", { name: "Ordenar por" })
     .selectOption("price-desc");
+  if (mobile) await expect(drawer).toBeHidden();
   await closeFilters(page);
   await expect(page.locator(".nft-grid .card-name").first()).toHaveText(
     "Neon Vessel #552",

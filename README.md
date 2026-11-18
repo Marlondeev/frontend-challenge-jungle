@@ -56,6 +56,10 @@ Para reproduzir recuperação de compra, adicione um NFT, entre e abra o checkou
 
 ## Validação
 
+No painel mobile de **Filtros**, escolher coleção, rede ou ordenação aplica a seleção e fecha o painel. **Limpar filtros** também fecha após reiniciar os valores. Os controles de preço mantêm o painel aberto e alteram apenas o rascunho; tocar em **Aplicar** confirma a faixa e fecha o painel.
+
+Essa interação passou por **34 E2E direcionados**, em desktop/mobile, com zero falhas, retries, casos instáveis ou skips, além de lint e build. A verificação cobre fechamento automático, preço pendente, aplicação e limpeza, combinações de filtros, histórico, ordenação nativa e preservação da posição da página. O [relatório dessa rodada](reports/filter-review/index.html) está incluído.
+
 ```sh
 npm run typecheck
 npm run lint
