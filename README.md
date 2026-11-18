@@ -1,6 +1,6 @@
 # Kurio — Frontend Challenge
 
-Marketplace de NFTs desenvolvido para o [desafio da Jungle Gaming](https://github.com/junglegaming/frontend-challenge), a partir do Figma e do PDF fornecidos. A interface usa as quatro artes originais e fontes locais. Compras, carteiras e autenticação são simuladas por MSW; não há pagamento ou conexão com blockchain real.
+Marketplace de NFTs desenvolvido para o [desafio da Jungle Gaming](https://github.com/junglegaming/frontend-challenge), a partir do Figma e do PDF fornecidos. A interface usa as quatro artes originais e fontes locais. O modo padrão simula autenticação e dados com MSW; o modo opcional Google valida uma conta real por um servidor Node local. Compras e carteiras continuam fictícias, sem pagamento ou conexão com blockchain real.
 
 ## Executar
 
@@ -11,9 +11,9 @@ npm ci
 npm run dev
 ```
 
-Acesse `http://localhost:5173`. Em PowerShell com scripts bloqueados, use `npm.cmd` e `npx.cmd` nos comandos. Nenhuma chave externa é necessária. O Service Worker exige localhost ou HTTPS.
+Acesse `http://localhost:5173`. Em PowerShell com scripts bloqueados, use `npm.cmd` e `npx.cmd` nos comandos. Nenhuma chave externa é necessária para a demonstração padrão. O Service Worker exige localhost ou HTTPS.
 
-As opções de `.env.example` já são os padrões: `VITE_MOCKS=true` ativa o MSW e `VITE_DEMO_TOOLS=true` mostra o painel de cenários. Ambas podem ser desativadas com `false` em `.env.local`. A entrega de demonstração mantém as duas ativas; desativar os mocks exige implementar os mesmos contratos em um backend próprio.
+As opções de `.env.example` já são os padrões: `VITE_MOCKS=true` ativa o MSW e `VITE_DEMO_TOOLS=true` mostra o painel de cenários. A demonstração mantém as duas ativas. Para usar a API Node incluída, execute o modo Google descrito abaixo; alterar apenas `VITE_MOCKS` não inicia o servidor.
 
 ```sh
 npm run build
@@ -22,7 +22,26 @@ npm run preview
 
 O build estático fica em `dist/`. Os mocks permanecem ativos no build de demonstração. Os arquivos incluídos seguem as instruções oficiais de fallback SPA da [Vercel](https://vercel.com/docs/frameworks/frontend/vite#using-vite-to-make-spas) e da [Netlify](https://docs.netlify.com/manage/routing/redirects/rewrites-proxies/#history-pushstate-and-single-page-apps).
 
-## Experimentar os fluxos
+## Google real, opcional
+
+O modo `google` usa Google Identity Services e valida o ID token no servidor. Configure um cliente OAuth Web com as origens JavaScript `http://localhost:5173` e `http://localhost:4173`. Copie `.env.google.example` para `.env.google.local` e preencha `VITE_GOOGLE_CLIENT_ID` com o identificador público; neste workspace, o arquivo local já está configurado e é ignorado pelo Git. Esse fluxo não usa Client Secret.
+
+```sh
+npm run dev:google
+```
+
+Abra `http://localhost:5173`. Para o build separado e seu preview:
+
+```sh
+npm run build:google
+npm run preview:google
+```
+
+Abra `http://localhost:4173`. O build fica em `dist-google/`. Encerre `dev:google` antes de iniciar `preview:google`: apenas um servidor pode usar o armazenamento privado `tmp/google-auth/`. Esse diretório é ignorado pelo Git e preserva os dados após reiniciar o servidor.
+
+Nesse modo, Google autentica a conta real; Facebook permanece desabilitado porque o aplicativo Meta não foi configurado. Contas Google não recebem senha local nem carteira automática. O catálogo e as compras continuam fictícios. O frontend, a API e Socket.IO são atendidos na mesma origem pelo processo Node; hospedar apenas os arquivos estáticos não ativa o login. Veja os detalhes e limites em [docs/social-login.md](docs/social-login.md).
+
+## Experimentar os fluxos da demonstração
 
 | Conta                     | Senha       |
 | ------------------------- | ----------- |
@@ -33,7 +52,7 @@ O build estático fica em `dist/`. Os mocks permanecem ativos no build de demons
 
 Ao clicar em **Favoritar** nos detalhes sem estar autenticado, o login abre sobre o mesmo NFT, inclusive no celular. Edição, quantidade e visualização são preservadas. Entrar conclui o favorito solicitado; fechar cancela a tentativa e devolve o foco ao botão.
 
-Os botões Google e Facebook abrem uma confirmação de **login de demonstração**: Google usa o perfil fictício Colecionador, e Facebook usa Nova. A confirmação cria uma sessão normal do mock, com persistência e mesclagem do carrinho visitante. Nenhuma conta externa é acessada. Para os requisitos de uma integração real, consulte [docs/social-login.md](docs/social-login.md).
+No modo padrão, os botões Google e Facebook abrem uma confirmação de **login de demonstração**: Google usa o perfil fictício Colecionador, e Facebook usa Nova. A confirmação cria uma sessão normal do mock, com persistência e mesclagem do carrinho visitante. Nenhuma conta externa é acessada nesse modo.
 
 - `/`: busca, coleções, rede, preço, abas, ordenação e paginação combinados na URL.
 - `/nft/emerald-ape-042`: galeria, edição, quantidade, favoritos e compra.
@@ -55,6 +74,10 @@ Abas da mesma origem compartilham o banco e o token de sessão; login e logout s
 Para reproduzir recuperação de compra, adicione um NFT, entre e abra o checkout; selecione **Pagamento com resposta atrasada** antes de confirmar. O servidor simulado cria o pedido antes de atrasar a resposta. A interface recupera essa mesma tentativa pela chave de idempotência. Para tempo real, mantenha o Emerald Ape no carrinho e use **Alterar preço**; para rollback, selecione **Falha ao favoritar** e tente alterar um favorito.
 
 ## Validação
+
+A rodada de integração do modo Google passou por **137 testes unitários/de rede em 16 arquivos**, lint, verificação de tipos e builds padrão/Google. A regressão completa do build de produção padrão concluiu **152 E2E em desktop/mobile**, antes do ajuste final de CSS exclusivo do modo Google; veja o [relatório dessa regressão](reports/google-demo-regression/index.html).
+
+A suíte específica Google concluiu **12 E2E em desktop/mobile**, com encerramento bem-sucedido; o [relatório Google](reports/google-auth/html/index.html) está incluído. `npm run test:google` usa um servidor de testes isolado com verificador controlado e não comprova autenticação em uma conta externa. O SDK oficial também foi conferido em 320, 390 e 1440 px, sem rolagem horizontal ou erros de página. A escolha de uma conta Google real pelo usuário permanece pendente. Os demais resultados e relatórios abaixo são históricos das versões de demonstração indicadas.
 
 No painel mobile de **Filtros**, escolher coleção, rede ou ordenação aplica a seleção e fecha o painel. **Limpar filtros** também fecha após reiniciar os valores. Os controles de preço mantêm o painel aberto e alteram apenas o rascunho; tocar em **Aplicar** confirma a faixa e fecha o painel.
 
@@ -105,8 +128,10 @@ O arquivo Figma, PDF, imagens originais, especificações e estilos foram preser
 
 As seis composições mobile de início, detalhe, carrinho, pagamento, login e cadastro seguem as referências de **414×896 px**, com adaptação para larguras de 320, 360, 390 e 414 px. O início usa banner de 190 px, cards em duas colunas alternadas e navegação inferior curva; as demais telas têm seus próprios cabeçalhos e ações. Os SVGs do fundo do banner, curva da navegação e ícones foram extraídos do Figma arquivado e estão em `public/assets/ui/`. Os formulários permitem rolagem em telas menores e quando há mensagens de validação; o login sobre os detalhes mantém o contexto do NFT.
 
-Totais, disponibilidade e contagens refletem dados consistentes da simulação, inclusive onde o PDF usa exemplos divergentes. Os estados de erro, revisão, conexão e recuperação completam os fluxos exigidos. Recuperação por e-mail e conteúdos editoriais externos exibem feedback explícito de indisponibilidade na demonstração; o login social usa perfis fictícios identificados antes da confirmação.
+Totais, disponibilidade e contagens refletem dados consistentes da simulação, inclusive onde o PDF usa exemplos divergentes. Os estados de erro, revisão, conexão e recuperação completam os fluxos exigidos. Recuperação por e-mail e conteúdos editoriais externos exibem feedback explícito de indisponibilidade na demonstração; o login social padrão usa perfis fictícios identificados antes da confirmação.
 
 ## Publicação
 
 O código, build e relatórios estão locais; não há remoto Git configurado nem URL pública publicada. O envio à hospedagem Sites foi bloqueado pela revisão automática de aprovação, que exige autorização explícita para esse destino externo. O deploy obrigatório do enunciado e o link de repositório permanecem pendentes; os arquivos de configuração para Vercel/Netlify já estão incluídos.
+
+Essas configurações de hospedagem estática atendem ao modo padrão. Publicar o modo Google requer um backend Node com armazenamento privado persistente, HTTPS e origens autorizadas no servidor e no Google Cloud; o preview Vite destina-se à conferência local.

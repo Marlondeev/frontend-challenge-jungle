@@ -5,6 +5,7 @@ import type {
   CatalogResponse,
   CatalogSearch,
   DemoControl,
+  GoogleCredential,
   LoginInput,
   Nft,
   Order,
@@ -71,6 +72,10 @@ export const sessionApi = {
     (await api.get<Session>("/session", { signal })).data,
   login: async (input: LoginInput, signal?: AbortSignal) =>
     (await api.post<AuthResult>("/session/login", input, { signal })).data,
+  googleChallenge: async () =>
+    (await api.get<{ nonce: string }>("/session/google/challenge")).data,
+  loginGoogle: async (input: GoogleCredential, signal?: AbortSignal) =>
+    (await api.post<AuthResult>("/session/google", input, { signal })).data,
   loginSocialDemo: async (provider: SocialDemoProvider, signal?: AbortSignal) =>
     (
       await api.post<AuthResult>(

@@ -6,6 +6,7 @@ import type {
   CatalogSearch,
   CollectorSnapshot,
   DemoControl,
+  GoogleIdentity,
   Nft,
   Order,
   PlaceOrderInput,
@@ -35,6 +36,7 @@ export interface RequestContext {
   token?: string;
   visitorId?: string;
   idempotencyKey?: string;
+  signal?: AbortSignal;
 }
 export const STORAGE_KEY = "kurio.mock.v1";
 export function memoryStorage(): StorageAdapter {
@@ -505,7 +507,8 @@ export function createBackend({
     const snapshot = await transaction(() => {
       settle();
       const user = state.users.find((entry) => entry.email === normalized);
-      if (!user) return invalidCredentials();
+      if (!user || user.authProvider === "google" || !state.passwords[user.id])
+        return invalidCredentials();
       return { userId: user.id, auth: { ...state.passwords[user.id] } };
     });
     const hash = await hashPassword(password, snapshot.auth.salt);
@@ -527,6 +530,100 @@ export function createBackend({
   function invalidCredentials(): never {
     return fail(401, "INVALID_CREDENTIALS", "E-mail ou senha incorretos.", {
       email: "Confira suas credenciais.",
+    });
+  }
+  /** Internal entry point; the HTTP adapter must verify the Google token first. */
+  function loginGoogle(
+    identity: GoogleIdentity,
+    context: RequestContext = {},
+  ): Promise<AuthResult> {
+    return transaction(() => {
+      // The request may have been canceled while waiting for the storage lock.
+      context.signal?.throwIfAborted();
+      const invalidIdentity = (): never =>
+        fail(
+          422,
+          "INVALID_GOOGLE_IDENTITY",
+          "Não foi possível validar os dados da conta Google.",
+        );
+      if (
+        !identity ||
+        typeof identity.sub !== "string" ||
+        !identity.sub ||
+        identity.sub.length > 255 ||
+        /[\s\p{Cc}]/u.test(identity.sub) ||
+        typeof identity.email !== "string" ||
+        identity.emailVerified !== true ||
+        (identity.name !== undefined && typeof identity.name !== "string") ||
+        (identity.picture !== undefined && typeof identity.picture !== "string")
+      )
+        return invalidIdentity();
+      const email = identity.email.trim().toLowerCase();
+      if (
+        email.length > 254 ||
+        /\p{Cc}/u.test(email) ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      )
+        return invalidIdentity();
+      let avatar: string | undefined;
+      if (identity.picture) {
+        try {
+          const picture = new URL(identity.picture);
+          if (
+            identity.picture.length > 2048 ||
+            picture.protocol !== "https:" ||
+            picture.username ||
+            picture.password
+          )
+            return invalidIdentity();
+          avatar = picture.href;
+        } catch {
+          return invalidIdentity();
+        }
+      }
+      let userId: string;
+      try {
+        userId = `google:${encodeURIComponent(identity.sub)}`;
+      } catch {
+        return invalidIdentity();
+      }
+      const existing = state.users.find((user) => user.id === userId);
+      if (existing) {
+        if (existing.authProvider !== "google")
+          return fail(409, "ACCOUNT_EXISTS", "Esta conta já está cadastrada.");
+        // Subject, rather than mutable email claims, binds returning accounts.
+        // Keep the collector's edited profile, wallets, cart and favorites.
+        return issueSession(existing, context, true);
+      }
+      if (state.users.some((user) => user.email.toLowerCase() === email))
+        return fail(
+          409,
+          "ACCOUNT_EXISTS",
+          "Este e-mail já está cadastrado. Entre pelo método usado no cadastro.",
+          { email: "Use o método de acesso da conta existente." },
+        );
+      let username: string;
+      do {
+        username = `google_${crypto.randomUUID().slice(0, 8)}`;
+      } while (
+        state.users.some(
+          (user) => user.username.toLowerCase() === username.toLowerCase(),
+        )
+      );
+      const name = identity.name?.trim().slice(0, 120);
+      const user: User = {
+        id: userId,
+        email,
+        username,
+        displayName: name && name.length >= 2 ? name : "Conta Google",
+        walletAlias: "",
+        ens: "",
+        authProvider: "google",
+        ...(avatar ? { avatar } : {}),
+      };
+      state.users.push(user);
+      state.wallets[user.id] = [];
+      return issueSession(user, context, true);
     });
   }
   function requireUniqueAccount(email: string, username: string) {
@@ -614,6 +711,13 @@ export function createBackend({
       settle();
       const user = authenticate(context)!;
       validateMutationScenario(method);
+      if (user.authProvider === "google" || !state.passwords[user.id])
+        return fail(
+          422,
+          "SOCIAL_AUTH_ONLY",
+          "A senha desta conta é gerenciada pelo Google.",
+          { currentPassword: "Gerencie sua senha na sua conta Google." },
+        );
       return { userId: user.id, auth: { ...state.passwords[user.id] } };
     });
     if (
@@ -1234,6 +1338,7 @@ export function createBackend({
   return {
     ready,
     request,
+    loginGoogle,
     state: () => {
       const current = view();
       return { scenario: current.scenario, connected: current.connected };

@@ -7,6 +7,7 @@ export default tseslint.config(
   {
     ignores: [
       "dist/**",
+      "dist-google/**",
       "node_modules/**",
       "design-reference/**",
       "tmp/**",

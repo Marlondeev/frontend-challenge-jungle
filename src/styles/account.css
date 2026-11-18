@@ -2073,3 +2073,48 @@
     grid-template-columns: 70px minmax(0, 1fr);
   }
 }
+.google-sign-in {
+  width: 100%;
+  min-width: 0;
+}
+.google-sign-in-button {
+  display: flex;
+  justify-content: center;
+  min-height: 40px;
+  width: 100%;
+  /* Match the embedded Google document so its transparent canvas stays clear. */
+  color-scheme: light;
+}
+.auth-dialog.auth-google-enabled {
+  padding-bottom: 32px;
+}
+.auth-google-enabled .auth-divider {
+  margin-inline: 0;
+}
+.auth-social-unavailable {
+  margin: 12px 0 0;
+  color: #cfb28c;
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
+}
+.google-sign-in-button[inert] {
+  pointer-events: none;
+  opacity: 0.65;
+}
+.google-sign-in-status,
+.google-sign-in-progress,
+.google-sign-in-failure {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #cfb28c;
+  margin-top: 8px;
+}
+.google-sign-in-progress > button,
+.google-sign-in-failure > button {
+  display: inline-block;
+  margin-top: 8px;
+  color: #d28a4c;
+  text-decoration: underline;
+  cursor: pointer;
+}

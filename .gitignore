@@ -1,9 +1,11 @@
 node_modules/
 dist/
+dist-google/
 tmp/
 design-reference/
 .superpowers/
 test-results/
+reports/google-auth/results/
 playwright-report/
 output/
 debug.log

@@ -22,14 +22,19 @@ export function RealtimeSync() {
     const gate = new VersionGate();
     let alive = true;
     let interrupted = false;
-    const socket = io("https://realtime.kurio.test", {
-      transports: ["websocket"],
-      query: { token: getToken() ?? "", visitorId: getVisitorId() },
-      auth: { token: getToken(), visitorId: getVisitorId() },
-      reconnectionDelay: 500,
-      reconnectionDelayMax: 3000,
-      timeout: 6000,
-    });
+    const socket = io(
+      import.meta.env.VITE_MOCKS === "false"
+        ? window.location.origin
+        : "https://realtime.kurio.test",
+      {
+        transports: ["websocket"],
+        query: { token: getToken() ?? "", visitorId: getVisitorId() },
+        auth: { token: getToken(), visitorId: getVisitorId() },
+        reconnectionDelay: 500,
+        reconnectionDelayMax: 3000,
+        timeout: 6000,
+      },
+    );
     socket.on("connect", () => {
       if (!alive) return;
       void client.invalidateQueries({

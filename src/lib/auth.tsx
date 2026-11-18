@@ -10,6 +10,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AuthResult,
+  GoogleCredential,
   LoginInput,
   RegisterInput,
   Session,
@@ -34,6 +35,10 @@ interface AuthContextValue {
   isLoading: boolean;
   error: unknown;
   login(input: LoginInput, signal?: AbortSignal): Promise<User>;
+  loginGoogle(
+    credentialProducer: (signal: AbortSignal) => Promise<GoogleCredential>,
+    signal?: AbortSignal,
+  ): Promise<User>;
   loginSocialDemo(
     provider: SocialDemoProvider,
     signal?: AbortSignal,
@@ -125,6 +130,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ),
     [authenticate],
   );
+  const loginGoogle = useCallback(
+    (
+      credentialProducer: (signal: AbortSignal) => Promise<GoogleCredential>,
+      signal?: AbortSignal,
+    ) =>
+      authenticate(async (requestSignal) => {
+        // Reserve the authentication generation at the Google button click,
+        // before the account chooser returns. A newer password login wins.
+        const credential = await credentialProducer(requestSignal);
+        if (requestSignal.aborted)
+          throw new DOMException("Authentication canceled", "AbortError");
+        return sessionApi.loginGoogle(credential, requestSignal);
+      }, signal),
+    [authenticate],
+  );
   const loginSocialDemo = useCallback(
     (provider: SocialDemoProvider, signal?: AbortSignal) =>
       authenticate(
@@ -186,6 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading: session.isPending,
       error: session.error,
       login,
+      loginGoogle,
       loginSocialDemo,
       register,
       logout,
@@ -195,6 +216,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session.isPending,
       session.error,
       login,
+      loginGoogle,
       loginSocialDemo,
       register,
       logout,

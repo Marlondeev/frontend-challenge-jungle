@@ -25,6 +25,12 @@ const CartBackground = lazy(() =>
     default: module.CartPage,
   })),
 );
+const GoogleSignInButton = lazy(() =>
+  import("./google-sign-in-button").then((module) => ({
+    default: module.GoogleSignInButton,
+  })),
+);
+const realGoogleLogin = import.meta.env.VITE_GOOGLE_LOGIN === "real";
 
 type AuthMode = "login" | "register";
 
@@ -258,19 +264,49 @@ export function AuthPage({
         <span>Ou continue com</span>
       </div>
       <div className="auth-social">
-        {(["google", "facebook"] as const).map((provider) => (
-          <SocialDemoButton
-            key={provider}
-            provider={provider}
-            redirect={redirect}
-            onAuthenticated={dialog?.onAuthenticated}
-          />
-        ))}
+        {realGoogleLogin ? (
+          <>
+            <Suspense fallback={<p role="status">Preparando o Google…</p>}>
+              <GoogleSignInButton
+                key={mode}
+                redirect={redirect}
+                onAuthenticated={dialog?.onAuthenticated}
+                onStart={() => {
+                  submission.current?.abort();
+                  submission.current = null;
+                  setPending(false);
+                  setFailure("");
+                  setErrors({});
+                }}
+              />
+            </Suspense>
+            <Button
+              variant="outline"
+              disabled
+              aria-describedby="social-demo-unavailable"
+            >
+              <span aria-hidden="true" className="social-logo social-1">
+                f
+              </span>
+              Continuar com Facebook
+            </Button>
+          </>
+        ) : (
+          (["google", "facebook"] as const).map((provider) => (
+            <SocialDemoButton
+              key={provider}
+              provider={provider}
+              redirect={redirect}
+              onAuthenticated={dialog?.onAuthenticated}
+            />
+          ))
+        )}
       </div>
-      {import.meta.env.VITE_MOCKS === "false" && (
-        <p id="social-demo-unavailable" className="mt-3 text-xs text-secondary">
-          O login social de demonstração está indisponível neste ambiente. O
-          acesso a contas reais depende da configuração do Google e da Meta.
+      {(realGoogleLogin || import.meta.env.VITE_MOCKS === "false") && (
+        <p id="social-demo-unavailable" className="auth-social-unavailable">
+          {realGoogleLogin
+            ? "Login com Facebook indisponível no momento."
+            : "O login social de demonstração está indisponível neste ambiente. O acesso a contas reais depende da configuração do Google e da Meta."}
         </p>
       )}
       <p className="auth-switch">
@@ -321,7 +357,7 @@ export function AuthPage({
         <Dialog.Portal>
           <Dialog.Overlay className="auth-overlay" />
           <Dialog.Content
-            className={`auth-dialog${dialog ? " auth-inline-dialog" : ""}`}
+            className={`auth-dialog${dialog ? " auth-inline-dialog" : ""}${realGoogleLogin ? " auth-google-enabled" : ""}`}
             onCloseAutoFocus={dialog?.onCloseAutoFocus}
           >
             <Dialog.Title className="sr-only">
@@ -339,6 +375,10 @@ export function AuthPage({
       </Dialog.Root>
     </>
   ) : (
-    <section className={`auth-mobile auth-${mode}`}>{fields}</section>
+    <section
+      className={`auth-mobile auth-${mode}${realGoogleLogin ? " auth-google-enabled" : ""}`}
+    >
+      {fields}
+    </section>
   );
 }

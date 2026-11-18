@@ -311,35 +311,45 @@ export function ProfilePage() {
           {save.isPending ? "Salvando…" : "Salvar perfil"}
         </Button>
       </form>
-      <form onSubmit={submitPassword} noValidate className="password-form">
-        <h2>Alterar senha</h2>
-        {(
-          [
-            { key: "currentPassword", label: "Senha atual" },
-            { key: "newPassword", label: "Nova senha" },
-            { key: "confirmPassword", label: "Confirmar nova senha" },
-          ] as const
-        ).map((field) => (
-          <PasswordField
-            key={field.key}
-            id={`profile-${field.key}`}
-            label={field.label}
-            autoComplete={
-              field.key === "currentPassword"
-                ? "current-password"
-                : "new-password"
-            }
-            value={password[field.key]}
-            error={passwordErrors[field.key]}
-            onChange={(e) =>
-              setPassword((v) => ({ ...v, [field.key]: e.target.value }))
-            }
-          />
-        ))}
-        <Button type="submit" disabled={busy}>
-          {changePassword.isPending ? "Salvando…" : "Salvar senha"}
-        </Button>
-      </form>
+      {user?.authProvider === "google" ? (
+        <section className="password-form">
+          <h2>Senha da conta</h2>
+          <p className="muted">
+            Você entrou com o Google. Sua senha é gerenciada na sua conta
+            Google.
+          </p>
+        </section>
+      ) : (
+        <form onSubmit={submitPassword} noValidate className="password-form">
+          <h2>Alterar senha</h2>
+          {(
+            [
+              { key: "currentPassword", label: "Senha atual" },
+              { key: "newPassword", label: "Nova senha" },
+              { key: "confirmPassword", label: "Confirmar nova senha" },
+            ] as const
+          ).map((field) => (
+            <PasswordField
+              key={field.key}
+              id={`profile-${field.key}`}
+              label={field.label}
+              autoComplete={
+                field.key === "currentPassword"
+                  ? "current-password"
+                  : "new-password"
+              }
+              value={password[field.key]}
+              error={passwordErrors[field.key]}
+              onChange={(e) =>
+                setPassword((v) => ({ ...v, [field.key]: e.target.value }))
+              }
+            />
+          ))}
+          <Button type="submit" disabled={busy}>
+            {changePassword.isPending ? "Salvando…" : "Salvar senha"}
+          </Button>
+        </form>
+      )}
     </AccountShell>
   );
 }

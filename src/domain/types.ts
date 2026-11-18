@@ -54,6 +54,7 @@ export interface User {
   ens: string;
   avatar?: string;
   referralCode?: string;
+  authProvider?: "google";
 }
 export interface Session {
   user: User | null;
@@ -64,6 +65,18 @@ export interface LoginInput {
   password: string;
 }
 export type SocialDemoProvider = "google" | "facebook";
+/** Claims supplied only by the server after validating a Google ID token. */
+export interface GoogleIdentity {
+  sub: string;
+  email: string;
+  emailVerified: boolean;
+  name?: string;
+  picture?: string;
+}
+export interface GoogleCredential {
+  credential: string;
+  nonce: string;
+}
 export interface RegisterInput extends LoginInput {
   username: string;
   confirmPassword?: string;
