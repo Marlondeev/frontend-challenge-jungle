@@ -132,6 +132,8 @@ Totais, disponibilidade e contagens refletem dados consistentes da simulação, 
 
 ## Publicação
 
-O código, build e relatórios estão locais; não há remoto Git configurado nem URL pública publicada. O envio à hospedagem Sites foi bloqueado pela revisão automática de aprovação, que exige autorização explícita para esse destino externo. O deploy obrigatório do enunciado e o link de repositório permanecem pendentes; os arquivos de configuração para Vercel/Netlify já estão incluídos.
+O repositório público é [Marlondeev/frontend-challenge-jungle](https://github.com/Marlondeev/frontend-challenge-jungle). O código, assets necessários e relatórios de validação estão versionados; dependências, builds, acervo de design e dados privados locais ficam fora do Git.
+
+Para publicar a demonstração na Vercel, importe esse repositório e selecione a branch `main`. O arquivo `vercel.json` configura Vite, instalação com `npm ci`, build com `npm run build`, saída `dist/` e fallback para as rotas da SPA. O projeto fixa Node.js 24 em `package.json`. Não é necessário cadastrar variáveis de ambiente para esse modo; mantenha os valores padrão de MSW. O endereço público da aplicação será gerado após o deploy e deve acompanhar o link do repositório na entrega.
 
 Essas configurações de hospedagem estática atendem ao modo padrão. Publicar o modo Google requer um backend Node com armazenamento privado persistente, HTTPS e origens autorizadas no servidor e no Google Cloud; o preview Vite destina-se à conferência local.
