@@ -4,15 +4,7 @@ import {
   useRouterState,
   useSearch,
 } from "@tanstack/react-router";
-import {
-  Search,
-  ShoppingCart,
-  LogIn,
-  Heart,
-  Home,
-  UserRound,
-  ScanLine,
-} from "lucide-react";
+import { Search, ShoppingCart, LogIn } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCart } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -248,10 +240,10 @@ export function MobileNav() {
   return (
     <nav className="mobile-nav" aria-label="Navegação móvel">
       <Link to="/" aria-label="Início">
-        <Home />
+        <span className="mobile-nav-icon nav-home" aria-hidden="true" />
       </Link>
       <Link to="/favorites" aria-label="Favoritos">
-        <Heart />
+        <span className="mobile-nav-icon nav-heart" aria-hidden="true" />
       </Link>
       <Link
         to="/"
@@ -260,13 +252,13 @@ export function MobileNav() {
         className="mobile-nav-center"
         aria-label="Explorar NFTs"
       >
-        <ScanLine />
+        <span className="mobile-nav-icon nav-scan" aria-hidden="true" />
       </Link>
       <Link to="/cart" aria-label="Carrinho">
-        <ShoppingCart />
+        <span className="mobile-nav-icon nav-cart" aria-hidden="true" />
       </Link>
       <Link to="/account" aria-label="Conta">
-        <UserRound />
+        <span className="mobile-nav-icon nav-user" aria-hidden="true" />
       </Link>
     </nav>
   );

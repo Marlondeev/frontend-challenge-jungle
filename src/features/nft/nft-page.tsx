@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Heart, Minus, Plus, ShoppingCart } from "lucide-react";
+import { ChevronLeft, Heart, Minus, Plus, ShoppingCart } from "lucide-react";
 import {
   lazy,
   Suspense,
@@ -117,6 +117,7 @@ export function NftPage({ id }: { id: string }) {
       </div>
     );
   const item = nft.data;
+  const tokenId = item.name.match(/#(\d+)$/)?.[1] ?? item.id;
   const edition = item.editions.find((e) => e.id === editionId);
   const favorite = favorites.data?.includes(id) ?? false;
   const available = !!edition && edition.stock >= quantity && quantity > 0;
@@ -143,7 +144,7 @@ export function NftPage({ id }: { id: string }) {
     <div className="wrap nft-detail">
       <div className="detail-mobile-top">
         <Link to="/" hash="mercado" aria-label="Voltar ao mercado">
-          <ArrowLeft />
+          <ChevronLeft />
         </Link>
         <button
           aria-label={favorite ? "Remover dos favoritos" : "Favoritar"}
@@ -197,7 +198,7 @@ export function NftPage({ id }: { id: string }) {
           </div>
           <h2 className="sr-only">Informações da obra</h2>
           <h3>Sobre este NFT:</h3>
-          <p>{item.description}</p>
+          <p className="nft-description">{item.description}</p>
           <h3>Edição:</h3>
           <div className="editions">
             {item.editions.map((e) => (
@@ -245,7 +246,10 @@ export function NftPage({ id }: { id: string }) {
             </button>
           </div>
           <div className="metadata">
-            <p>ID do token: #{item.id}</p>
+            <p>
+              ID do token: #<span className="desktop-copy">{item.id}</span>
+              <span className="mobile-copy">{tokenId}</span>
+            </p>
             <p>Coleção: {item.collection}</p>
             <p>Atributos: {item.rarity || item.category}</p>
             <p>Rede: {item.network}</p>

@@ -1,9 +1,9 @@
-import { test, expect } from "./helpers";
+import { test, expect, openSort, closeFilters } from "./helpers";
 
 test("the whole sort control opens its options and preserves the selected order", async ({
   page,
 }) => {
-  const control = page.locator(".sort");
+  const control = await openSort(page);
   const select = control.getByRole("combobox", {
     name: "Ordenar por",
     exact: true,
@@ -26,6 +26,14 @@ test("the whole sort control opens its options and preserves the selected order"
   await page.keyboard.press("Enter");
   await expect(select).toHaveValue("price-asc");
   await expect(page).toHaveURL(/sort=price-asc/);
+  await closeFilters(page);
   await page.reload();
-  await expect(select).toHaveValue("price-asc");
+  const restoredControl = await openSort(page);
+  await expect(
+    restoredControl.getByRole("combobox", {
+      name: "Ordenar por",
+      exact: true,
+    }),
+  ).toHaveValue("price-asc");
+  await closeFilters(page);
 });

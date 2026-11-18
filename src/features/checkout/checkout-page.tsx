@@ -688,47 +688,6 @@ export function CheckoutPage() {
                   )}
                 </fieldset>
               )}
-              {wallet && (
-                <div className="connection-actions">
-                  <p className="muted">Conexão e compra simuladas.</p>
-                  <Button
-                    variant="outline"
-                    type="button"
-                    disabled={pending || !!attempt}
-                    onClick={() => {
-                      setConnected(!connected);
-                      setReview(null);
-                      notify(
-                        connected
-                          ? "Carteira desconectada."
-                          : "Carteira conectada em modo de demonstração.",
-                        "info",
-                      );
-                    }}
-                  >
-                    {connected ? "Desconectar carteira" : "Conectar carteira"}
-                  </Button>
-                  {!connected && (
-                    <button
-                      type="button"
-                      className="text-button"
-                      disabled={pending || !!attempt}
-                      onClick={() => {
-                        setErrors({
-                          walletId:
-                            "Conexão recusada. Tente novamente quando desejar.",
-                        });
-                        notify(
-                          "Conexão recusada; sua compra não foi enviada.",
-                          "info",
-                        );
-                      }}
-                    >
-                      Simular recusa
-                    </button>
-                  )}
-                </div>
-              )}
               {errors.walletId && (
                 <p className="field-error" role="alert">
                   {errors.walletId}
@@ -740,6 +699,50 @@ export function CheckoutPage() {
                 </p>
               )}
             </section>
+            {wallet && (
+              <div className="connection-actions">
+                <p id="checkout-connection-notice" className="muted">
+                  Conexão e compra simuladas.
+                </p>
+                <Button
+                  variant="outline"
+                  aria-describedby="checkout-connection-notice"
+                  type="button"
+                  disabled={pending || !!attempt}
+                  onClick={() => {
+                    setConnected(!connected);
+                    setReview(null);
+                    notify(
+                      connected
+                        ? "Carteira desconectada."
+                        : "Carteira conectada em modo de demonstração.",
+                      "info",
+                    );
+                  }}
+                >
+                  {connected ? "Desconectar carteira" : "Conectar carteira"}
+                </Button>
+                {!connected && (
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={pending || !!attempt}
+                    onClick={() => {
+                      setErrors({
+                        walletId:
+                          "Conexão recusada. Tente novamente quando desejar.",
+                      });
+                      notify(
+                        "Conexão recusada; sua compra não foi enviada.",
+                        "info",
+                      );
+                    }}
+                  >
+                    Simular recusa
+                  </button>
+                )}
+              </div>
+            )}
             {review && (
               <section className="purchase-review" aria-live="polite">
                 <h2>Revise sua compra</h2>

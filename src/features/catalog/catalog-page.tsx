@@ -19,7 +19,7 @@ export function NftCard({ nft }: { nft: Nft }) {
   const navigate = useNavigate();
   const favorite = favorites.data?.includes(nft.id) ?? false;
   return (
-    <article className="nft-card">
+    <article className="nft-card" data-highlighted={!!nft.previousPrice}>
       <div className="card-image">
         <Link
           to="/nft/$id"
@@ -163,6 +163,33 @@ const sortLabels = {
   "price-desc": "Maior preço",
   popular: "Mais populares",
 } as const;
+function CatalogSort({
+  value,
+  onChange,
+}: {
+  value: NonNullable<CatalogSearch["sort"]>;
+  onChange: (value: NonNullable<CatalogSearch["sort"]>) => void;
+}) {
+  return (
+    <label className="sort">
+      <span aria-hidden="true">Ordenar por: {sortLabels[value]}</span>
+      <ChevronDown size={14} aria-hidden="true" />
+      <select
+        aria-label="Ordenar por"
+        value={value}
+        onChange={(event) =>
+          onChange(event.target.value as NonNullable<CatalogSearch["sort"]>)
+        }
+      >
+        {Object.entries(sortLabels).map(([key, label]) => (
+          <option key={key} value={key}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 export function CatalogPage() {
   const search = useSearch({ strict: false }) as CatalogSearch;
   const navigate = useNavigate();
@@ -254,7 +281,9 @@ export function CatalogPage() {
             className="hero-mini"
           />
         </div>
-        <div className="hero-dots">● ● ●</div>
+        <div className="hero-dots" aria-hidden="true">
+          <span>●</span> <span>●</span> <span>●</span>
+        </div>
       </section>
       <section id="mercado" className="market">
         <h2 className="sr-only">Mercado de NFTs</h2>
@@ -294,25 +323,10 @@ export function CatalogPage() {
                 </button>
               ))}
             </div>
-            <label className="sort">
-              <span aria-hidden="true">
-                Ordenar por: {sortLabels[search.sort ?? "recent"]}
-              </span>
-              <ChevronDown size={14} aria-hidden="true" />
-              <select
-                aria-label="Ordenar por"
-                value={search.sort ?? "recent"}
-                onChange={(e) =>
-                  change({ sort: e.target.value as CatalogSearch["sort"] })
-                }
-              >
-                {Object.entries(sortLabels).map(([value, label]) => (
-                  <option value={value} key={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <CatalogSort
+              value={search.sort ?? "recent"}
+              onChange={(sort) => change({ sort })}
+            />
           </div>
           <p className="result-count" aria-live="polite">
             {data
@@ -377,6 +391,12 @@ export function CatalogPage() {
             <Dialog.Description>
               Refine os NFTs por coleção, preço e rede.
             </Dialog.Description>
+            <div className="filter-sort">
+              <CatalogSort
+                value={search.sort ?? "recent"}
+                onChange={(sort) => change({ sort })}
+              />
+            </div>
             <Filters
               search={search}
               change={change}

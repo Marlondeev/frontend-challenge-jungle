@@ -89,7 +89,10 @@ export function CartPage() {
                       <Link to="/nft/$id" params={{ id: item.nftId }}>
                         {item.nft.name}
                       </Link>
-                      <small>{edition?.label ?? item.editionId}</small>
+                      <small>
+                        <span className="cart-edition-label">Edição: </span>
+                        {edition?.label ?? item.editionId}
+                      </small>
                     </div>
                     <span className="cart-unit-price">
                       {formatEth(item.nft.price)} ETH

@@ -1,4 +1,13 @@
-import { test, expect, control, filters, closeFilters, rest } from "./helpers";
+import {
+  test,
+  expect,
+  control,
+  filters,
+  closeFilters,
+  rest,
+  openSort,
+  sortCatalog,
+} from "./helpers";
 import type { CatalogResponse } from "../../src/domain/types";
 
 test("catalogue combines search, collection, network, price and sort in the URL", async ({
@@ -36,9 +45,7 @@ test("catalogue combines search, collection, network, price and sort in the URL"
   for (let step = 0; step < 100; step++) await maximum.press("ArrowRight");
   await panel.getByRole("button", { name: "Aplicar", exact: true }).click();
   await closeFilters(page);
-  await page
-    .getByRole("combobox", { name: "Ordenar por" })
-    .selectOption("price-asc");
+  await sortCatalog(page, "price-asc");
   await expect(page.locator(".result-count")).toHaveText("1 NFTs encontrados");
   await expect(page.locator(".nft-grid .nft-card")).toHaveCount(1);
   await expect(page.locator(".nft-grid")).toContainText("Emerald Ape #042");
@@ -69,9 +76,7 @@ test("catalogue pagination, sort, tabs and browser history restore their context
   await expect(page).toHaveURL(/page=2/);
   await expect(page.locator(".nft-grid")).toContainText("Violet Dreams #010");
   const pageTwo = page.url();
-  await page
-    .getByRole("combobox", { name: "Ordenar por" })
-    .selectOption("price-desc");
+  await sortCatalog(page, "price-desc");
   await expect(page).toHaveURL(/page=1/);
   await expect(page.locator(".nft-grid .card-name").first()).toHaveText(
     "Neon Vessel #552",
@@ -80,9 +85,11 @@ test("catalogue pagination, sort, tabs and browser history restore their context
   await expect(page).toHaveURL(pageTwo);
   await expect(page.locator(".nft-grid")).toContainText("Violet Dreams #010");
   await page.goForward();
-  await expect(page.getByRole("combobox", { name: "Ordenar por" })).toHaveValue(
-    "price-desc",
-  );
+  const sorting = await openSort(page);
+  await expect(
+    sorting.getByRole("combobox", { name: "Ordenar por", exact: true }),
+  ).toHaveValue("price-desc");
+  await closeFilters(page);
   await page
     .getByRole("button", { name: "Novos lançamentos", exact: true })
     .click();

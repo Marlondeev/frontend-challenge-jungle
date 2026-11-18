@@ -392,11 +392,11 @@ input[type="range"] {
     padding: 25px 22px;
   }
   .demo-trigger {
-    bottom: 82px;
-    padding: 7px;
-  }
-  .demo-trigger span {
-    display: none;
+    position: relative;
+    inset: auto;
+    width: max-content;
+    margin: 16px 24px 180px;
+    scroll-margin-block: 180px;
   }
   .page-width {
     width: calc(100% - 40px);
@@ -419,14 +419,7 @@ input[type="range"] {
   }
 }
 @media (max-width: 767px) {
-  .demo-trigger {
-    bottom: 90px;
-    padding: 8px;
-  }
-  .demo-trigger span {
-    display: none;
-  }
   .toast-region {
-    bottom: 95px;
+    bottom: 180px;
   }
 }

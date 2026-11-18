@@ -1,12 +1,17 @@
-import { test, expect, seedCart } from "./helpers";
+import {
+  test,
+  expect,
+  seedCart,
+  openSort,
+  closeFilters,
+  sortCatalog,
+} from "./helpers";
 
 test("promo explore returns to the market on repeated same-hash activation", async ({
   page,
 }) => {
   await page.goto("/#mercado");
-  await page
-    .getByRole("combobox", { name: "Ordenar por", exact: true })
-    .selectOption("price-desc");
+  await sortCatalog(page, "price-desc");
   await expect(page.locator(".nft-grid .card-name").first()).toHaveText(
     "Neon Vessel #552",
   );
@@ -85,10 +90,14 @@ test("catalogue sort and filters preserve the visible market position", async ({
   page,
 }, testInfo) => {
   await scrollToMarket(page);
+  // Opening the mobile drawer brings its search-bar trigger into view.
+  // Record the position after that user action, before sorting changes data.
+  const sort = await openSort(page);
   const beforeSort = await page.evaluate(() => window.scrollY);
-  await page
+  await sort
     .getByRole("combobox", { name: "Ordenar por" })
     .selectOption("price-desc");
+  await closeFilters(page);
   await expect(page.locator(".nft-grid .card-name").first()).toHaveText(
     "Neon Vessel #552",
   );
@@ -108,6 +117,7 @@ test("catalogue sort and filters preserve the visible market position", async ({
       Math.abs((await page.evaluate(() => window.scrollY)) - beforeFilter),
     ).toBeLessThan(3);
   } else {
+    await scrollToMarket(page);
     const beforeTab = await page.evaluate(() => window.scrollY);
     await page
       .getByRole("button", { name: "Novos lançamentos", exact: true })
