@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { OAuth2Client } from "google-auth-library";
 import type { GoogleIdentity } from "../src/domain/types";
-import { MockError } from "../src/mocks/backend";
+import { MockError } from "../src/mocks/backend.js";
 
 export type GoogleVerifier = (
   credential: string,

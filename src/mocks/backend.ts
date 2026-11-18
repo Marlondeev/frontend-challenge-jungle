@@ -22,11 +22,11 @@ import {
   nftFixtures,
   userFixtures,
   walletFixtures,
-} from "./fixtures";
+} from "./fixtures.js";
 import {
   createStorageCoordinator,
   type StorageCoordinator,
-} from "./storage-coordinator";
+} from "./storage-coordinator.js";
 
 export interface StorageAdapter {
   getItem(key: string): string | null;
