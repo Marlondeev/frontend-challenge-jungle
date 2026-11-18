@@ -30,7 +30,9 @@ const GoogleSignInButton = lazy(() =>
     default: module.GoogleSignInButton,
   })),
 );
-const realGoogleLogin = import.meta.env.VITE_GOOGLE_LOGIN === "real";
+const realGoogleLogin = ["real", "vercel-demo"].includes(
+  import.meta.env.VITE_GOOGLE_LOGIN,
+);
 
 type AuthMode = "login" | "register";
 

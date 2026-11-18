@@ -6,6 +6,7 @@ import type {
   CatalogSearch,
   DemoControl,
   GoogleCredential,
+  GoogleIdentity,
   LoginInput,
   Nft,
   Order,
@@ -17,23 +18,19 @@ import type {
   User,
   Wallet,
 } from "@/domain/types";
+import {
+  getClientStorage,
+  getStoredVisitorId,
+  isHostedGoogleDemo,
+} from "./client-storage";
 
 const TOKEN_KEY = "kurio.session";
-const VISITOR_KEY = "kurio.visitor";
-export const getToken = () =>
-  typeof localStorage === "undefined" ? null : localStorage.getItem(TOKEN_KEY);
+export const getToken = () => getClientStorage()?.getItem(TOKEN_KEY) ?? null;
 export const setToken = (token: string | null) =>
   token
-    ? localStorage.setItem(TOKEN_KEY, token)
-    : localStorage.removeItem(TOKEN_KEY);
-export function getVisitorId() {
-  let id = localStorage.getItem(VISITOR_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem(VISITOR_KEY, id);
-  }
-  return id;
-}
+    ? getClientStorage()?.setItem(TOKEN_KEY, token)
+    : getClientStorage()?.removeItem(TOKEN_KEY);
+export const getVisitorId = getStoredVisitorId;
 export const api = axios.create({
   baseURL: "/api",
   timeout: 8000,
@@ -73,9 +70,26 @@ export const sessionApi = {
   login: async (input: LoginInput, signal?: AbortSignal) =>
     (await api.post<AuthResult>("/session/login", input, { signal })).data,
   googleChallenge: async () =>
-    (await api.get<{ nonce: string }>("/session/google/challenge")).data,
-  loginGoogle: async (input: GoogleCredential, signal?: AbortSignal) =>
-    (await api.post<AuthResult>("/session/google", input, { signal })).data,
+    (
+      await api.get<{ nonce: string }>(
+        isHostedGoogleDemo() ? "/google-auth" : "/session/google/challenge",
+      )
+    ).data,
+  loginGoogle: async (input: GoogleCredential, signal?: AbortSignal) => {
+    if (!isHostedGoogleDemo())
+      return (await api.post<AuthResult>("/session/google", input, { signal }))
+        .data;
+    const { identity } = (
+      await api.post<{ identity: GoogleIdentity }>("/google-auth", input, {
+        signal,
+        timeout: 15_000,
+      })
+    ).data;
+    signal?.throwIfAborted();
+    const { loginVerifiedGoogleDemo } = await import("@/mocks/browser");
+    signal?.throwIfAborted();
+    return loginVerifiedGoogleDemo(identity, signal);
+  },
   loginSocialDemo: async (provider: SocialDemoProvider, signal?: AbortSignal) =>
     (
       await api.post<AuthResult>(

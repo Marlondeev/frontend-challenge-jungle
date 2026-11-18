@@ -1,11 +1,21 @@
-import { delay, http, HttpResponse, ws, type HttpResponseResolver } from "msw";
+import {
+  delay,
+  http,
+  HttpResponse,
+  passthrough,
+  ws,
+  type HttpResponseResolver,
+} from "msw";
 import { toSocketIo } from "@mswjs/socket.io-binding";
 import { MockError, type MockBackend } from "./backend";
 
 /** The same handlers run in the browser worker and Node integration tests. */
 export function createHandlers(
   backend: MockBackend,
-  { latency = 120 }: { latency?: number } = {},
+  {
+    latency = 120,
+    hostedGoogleDemo = false,
+  }: { latency?: number; hostedGoogleDemo?: boolean } = {},
 ) {
   let sequence = 0;
   const cleanups = new Set<() => void>();
@@ -13,6 +23,8 @@ export function createHandlers(
     const url = new URL(request.url),
       path = url.pathname.replace(/^\/api/, ""),
       method = request.method;
+    // The real verifier must run even when fictional marketplace errors are enabled.
+    if (hostedGoogleDemo && path === "/google-auth") return passthrough();
     const scenario = backend.state().scenario,
       control = path === "/__control";
     if (!control) {

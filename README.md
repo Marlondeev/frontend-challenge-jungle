@@ -1,6 +1,6 @@
 # Kurio — Frontend Challenge
 
-Marketplace de NFTs desenvolvido para o [desafio da Jungle Gaming](https://github.com/junglegaming/frontend-challenge), a partir do Figma e do PDF fornecidos. A interface usa as quatro artes originais e fontes locais. O modo padrão simula autenticação e dados com MSW; o modo opcional Google valida uma conta real por um servidor Node local. Compras e carteiras continuam fictícias, sem pagamento ou conexão com blockchain real.
+Marketplace de NFTs desenvolvido para o [desafio da Jungle Gaming](https://github.com/junglegaming/frontend-challenge), a partir do Figma e do PDF fornecidos. A interface usa as quatro artes originais e fontes locais. Há três modos: demonstração padrão com MSW, demonstração hospedada com Google real e dados temporários na aba, e servidor Google local com armazenamento privado. Compras e carteiras continuam fictícias, sem pagamento ou conexão com blockchain real.
 
 ## Executar
 
@@ -20,9 +20,30 @@ npm run build
 npm run preview
 ```
 
-O build estático fica em `dist/`. Os mocks permanecem ativos no build de demonstração. Os arquivos incluídos seguem as instruções oficiais de fallback SPA da [Vercel](https://vercel.com/docs/frameworks/frontend/vite#using-vite-to-make-spas) e da [Netlify](https://docs.netlify.com/manage/routing/redirects/rewrites-proxies/#history-pushstate-and-single-page-apps).
+O build estático padrão fica em `dist/` e mantém os mocks, inclusive o login social fictício. A configuração Vercel usa outro comando, `build:google-demo`, para habilitar Google real conforme descrito abaixo. Os arquivos incluídos seguem as instruções oficiais de fallback SPA da [Vercel](https://vercel.com/docs/frameworks/frontend/vite#using-vite-to-make-spas) e da [Netlify](https://docs.netlify.com/manage/routing/redirects/rewrites-proxies/#history-pushstate-and-single-page-apps).
 
-## Google real, opcional
+## Google real na Vercel, sem banco
+
+`vercel.json` usa `npm run build:google-demo` e publica `dist/`, junto da Node Function `/api/google-auth`. O botão oficial permite selecionar uma conta Google real; a função verifica o ID token e devolve a identidade validada. Ela não cria banco, usuários persistidos ou sessões de aplicativo no servidor. O restante do marketplace continua simulado por MSW.
+
+O Client ID público padrão está em `config/google-client.ts` e é compartilhado pelo frontend e pela função; ele não é um segredo. **Não é necessário cadastrar variáveis de ambiente na Vercel nem fornecer Client Secret.** O endereço informado para o site é [frontend-challenge-jungle-delta.vercel.app](https://frontend-challenge-jungle-delta.vercel.app). Adicione `https://frontend-challenge-jungle-delta.vercel.app`, sem barra final, às **Origens JavaScript autorizadas** do cliente OAuth no Google Cloud. Se quiser substituir o cliente, configure `VITE_GOOGLE_CLIENT_ID` na Vercel e faça um novo deploy: a variável substitui os dois lados da integração.
+
+```sh
+npm run dev:google-demo
+```
+
+Para conferir o build hospedado localmente:
+
+```sh
+npm run build:google-demo
+npm run preview:google-demo
+```
+
+O desenvolvimento usa `http://localhost:5173` e o preview `http://localhost:4173`; essas origens também precisam estar autorizadas no Google Cloud. O plugin local atende a mesma função de verificação, sem banco. `build` e `build:google-demo` escrevem em `dist/`; gere a variante correspondente antes de usar seu preview.
+
+Nesse modo, perfil, token do aplicativo, visitante, carrinho e demais dados fictícios ficam em **sessionStorage**, somente na aba. Atualizar a mesma aba preserva o estado; uma aba independente ou contexto novo começa como visitante. O ID token Google não é armazenado. Esse fluxo confirma a identidade Google para uma demonstração local na aba, sem backend protegido de contas ou compras. Facebook permanece desabilitado.
+
+## Servidor Google local, opcional
 
 O modo `google` usa Google Identity Services e valida o ID token no servidor. Configure um cliente OAuth Web com as origens JavaScript `http://localhost:5173` e `http://localhost:4173`. Copie `.env.google.example` para `.env.google.local` e preencha `VITE_GOOGLE_CLIENT_ID` com o identificador público; neste workspace, o arquivo local já está configurado e é ignorado pelo Git. Esse fluxo não usa Client Secret.
 
@@ -39,7 +60,7 @@ npm run preview:google
 
 Abra `http://localhost:4173`. O build fica em `dist-google/`. Encerre `dev:google` antes de iniciar `preview:google`: apenas um servidor pode usar o armazenamento privado `tmp/google-auth/`. Esse diretório é ignorado pelo Git e preserva os dados após reiniciar o servidor.
 
-Nesse modo, Google autentica a conta real; Facebook permanece desabilitado porque o aplicativo Meta não foi configurado. Contas Google não recebem senha local nem carteira automática. O catálogo e as compras continuam fictícios. O frontend, a API e Socket.IO são atendidos na mesma origem pelo processo Node; hospedar apenas os arquivos estáticos não ativa o login. Veja os detalhes e limites em [docs/social-login.md](docs/social-login.md).
+Nesse modo, Google autentica a conta real; Facebook permanece desabilitado porque o aplicativo Meta não foi configurado. Contas Google não recebem senha local nem carteira automática. O catálogo e as compras continuam fictícios. O frontend, a API e Socket.IO são atendidos na mesma origem pelo processo Node. Essa variante persistente precisa desse backend e difere da demonstração Vercel sem banco. Veja os detalhes em [docs/social-login.md](docs/social-login.md).
 
 ## Experimentar os fluxos da demonstração
 
@@ -75,9 +96,9 @@ Para reproduzir recuperação de compra, adicione um NFT, entre e abra o checkou
 
 ## Validação
 
-A rodada de integração do modo Google passou por **137 testes unitários/de rede em 16 arquivos**, lint, verificação de tipos e builds padrão/Google. A regressão completa do build de produção padrão concluiu **152 E2E em desktop/mobile**, antes do ajuste final de CSS exclusivo do modo Google; veja o [relatório dessa regressão](reports/google-demo-regression/index.html).
+A implementação hospedada passou por **160 testes unitários/de rede em 22 arquivos**, lint e verificação de tipos. A suíte `npm run test:hosted-google` concluiu **10 E2E** em desktop/mobile; a regressão direcionada do build de produção padrão concluiu **36 E2E**, ambas com encerramento bem-sucedido. Veja os relatórios [Google hospedado](reports/hosted-google/index.html) e [regressão padrão](reports/hosted-google-regression/index.html). A verificação do novo deploy e a seleção de uma conta Google real no domínio informado ainda não estão confirmadas.
 
-A suíte específica Google concluiu **12 E2E em desktop/mobile**, com encerramento bem-sucedido; o [relatório Google](reports/google-auth/html/index.html) está incluído. `npm run test:google` usa um servidor de testes isolado com verificador controlado e não comprova autenticação em uma conta externa. O SDK oficial também foi conferido em 320, 390 e 1440 px, sem rolagem horizontal ou erros de página. A escolha de uma conta Google real pelo usuário permanece pendente. Os demais resultados e relatórios abaixo são históricos das versões de demonstração indicadas.
+Os resultados **137 testes em 16 arquivos**, **152 E2E padrão** e **12 E2E Google local** são históricos da implementação anterior, registrada em `5fcce7a` e publicada antes desta revisão em `fd1090f`. Permanecem disponíveis o [relatório padrão](reports/google-demo-regression/index.html) e o [relatório Google local](reports/google-auth/html/index.html). Os testes Google usam verificador controlado e não comprovam login externo ao vivo. A conferência anterior do SDK oficial em 320, 390 e 1440 px também pertence àquela versão. Os demais resultados abaixo são históricos das versões indicadas.
 
 No painel mobile de **Filtros**, escolher coleção, rede ou ordenação aplica a seleção e fecha o painel. **Limpar filtros** também fecha após reiniciar os valores. Os controles de preço mantêm o painel aberto e alteram apenas o rascunho; tocar em **Aplicar** confirma a faixa e fecha o painel.
 
@@ -134,6 +155,6 @@ Totais, disponibilidade e contagens refletem dados consistentes da simulação, 
 
 O repositório público é [Marlondeev/frontend-challenge-jungle](https://github.com/Marlondeev/frontend-challenge-jungle). O código, assets necessários e relatórios de validação estão versionados; dependências, builds, acervo de design e dados privados locais ficam fora do Git.
 
-Para publicar a demonstração na Vercel, importe esse repositório e selecione a branch `main`. O arquivo `vercel.json` configura Vite, instalação com `npm ci`, build com `npm run build`, saída `dist/` e fallback para as rotas da SPA. O projeto fixa Node.js 24 em `package.json`. Não é necessário cadastrar variáveis de ambiente para esse modo; mantenha os valores padrão de MSW. O endereço público da aplicação será gerado após o deploy e deve acompanhar o link do repositório na entrega.
+Para publicar na Vercel, importe esse repositório e selecione a branch `main`. `vercel.json` configura Vite, `npm ci`, `npm run build:google-demo`, saída `dist/`, headers para o popup Google e fallback SPA que preserva `/api/google-auth`. O projeto fixa Node.js 24. O cliente público padrão já está incluído; não é necessário configurar variável de ambiente. Depois do deploy, autorize a origem do site no Google Cloud. O endereço público deve acompanhar o link do repositório na entrega.
 
-Essas configurações de hospedagem estática atendem ao modo padrão. Publicar o modo Google requer um backend Node com armazenamento privado persistente, HTTPS e origens autorizadas no servidor e no Google Cloud; o preview Vite destina-se à conferência local.
+A demonstração hospedada usa a função Vercel apenas para verificar Google e dispensa banco ou outro serviço de hospedagem. A variante opcional `google`, com API completa e dados persistidos, continua exigindo seu próprio processo Node e armazenamento privado; o preview Vite destina-se à conferência local.

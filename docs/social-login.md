@@ -1,6 +1,6 @@
 # Login social no desafio
 
-O projeto oferece dois modos independentes. Os comandos padrão mantêm a demonstração com MSW e perfis fictícios. O modo opcional `google` usa o Google Identity Services (GIS) e um servidor Node local para validar uma conta Google real. NFTs, carteiras, pagamentos e compras continuam fictícios nos dois modos.
+O projeto oferece três modos. Os comandos padrão mantêm MSW e perfis fictícios. `google-demo` usa Google Identity Services (GIS), uma função Vercel sem banco e dados fictícios temporários na aba. A variante opcional `google` usa um servidor Node local com armazenamento privado persistente. NFTs, carteiras, pagamentos e compras continuam fictícios em todos os modos.
 
 ## Demonstração padrão
 
@@ -15,7 +15,34 @@ A confirmação chama `POST /api/session/social-demo` com `{ "provider": "google
 
 Esses dados ficam no navegador. Esse endpoint e `/api/__control` não são expostos pelo servidor do modo Google.
 
-## Google real no ambiente local
+## Google real na Vercel, sem banco
+
+`vercel.json` executa `npm run build:google-demo`, publica `dist/` e mantém `/api/google-auth` fora do fallback SPA. Essa rota é uma Node Function incluída no projeto. Não é necessário hospedar outro serviço ou criar um banco.
+
+O Client ID OAuth público padrão está em `config/google-client.ts`. O build e a função usam o mesmo valor; ele não é um segredo. **Nenhuma variável de ambiente é obrigatória na Vercel e o fluxo não usa Client Secret.** Se quiser trocar o cliente, defina `VITE_GOOGLE_CLIENT_ID` no projeto Vercel e faça um novo deploy, atualizando frontend e função juntos.
+
+O endereço informado para o site é [frontend-challenge-jungle-delta.vercel.app](https://frontend-challenge-jungle-delta.vercel.app). Abra o cliente OAuth Web no Google Cloud e adicione `https://frontend-challenge-jungle-delta.vercel.app`, sem barra final ou caminho, em **Origens JavaScript autorizadas**. A verificação do novo deploy e o login em uma conta externa ainda não estão confirmados. As origens locais `http://localhost:5173` e `http://localhost:4173` permitem conferir o mesmo fluxo com:
+
+```sh
+npm run dev:google-demo
+```
+
+Ou, para o build e preview:
+
+```sh
+npm run build:google-demo
+npm run preview:google-demo
+```
+
+O desenvolvimento usa a porta 5173 e o preview 4173. O plugin local fornece a mesma função sem banco. Tanto `build:google-demo` quanto `build` escrevem em `dist/`; gere a variante desejada antes de iniciar seu preview. `build` continua sendo a demonstração padrão com login social fictício.
+
+`GET /api/google-auth` emite nonce com timestamp e cookie `HttpOnly`, `SameSite=Strict`, com validade de cinco minutos. `POST /api/google-auth` recebe `{ credential, nonce }`, exige origem compatível, cookie correspondente e prazo válido, verifica o ID token com o verificador oficial e retorna `{ identity }`. O cookie é limpo na tentativa. Esse desafio é stateless e não possui um registro durável de uso único.
+
+O Google realmente confirma a conta escolhida. Depois da verificação, a interface cria apenas a sessão do marketplace fictício no navegador. Perfil, token do aplicativo, visitante, favoritos, carrinho e banco simulado ficam em `sessionStorage`, somente na aba. Atualizar a aba preserva o estado; fechá-la e abrir uma aba independente ou contexto novo começa como visitante. O ID token Google não é persistido. A função não armazena usuários, sessões de aplicativo ou compras, e não oferece um backend protegido para esses dados locais.
+
+Contas Google não recebem senha local nem carteira automática. Facebook fica desabilitado porque o aplicativo Meta não foi configurado. A Vercel e os servidores locais configuram `Cross-Origin-Opener-Policy: same-origin-allow-popups` para o popup do Google.
+
+## Servidor Google local, opcional
 
 O cliente OAuth deve ser do tipo **Aplicativo da Web**. Configure as origens JavaScript autorizadas do Google Cloud para o endereço efetivamente aberto no navegador, incluindo esquema e porta. A configuração local usa `http://localhost:5173` no desenvolvimento e `http://localhost:4173` no preview. Se usar `127.0.0.1`, autorize também a origem correspondente: ela é diferente de `localhost`.
 
@@ -42,7 +69,7 @@ Abra `http://localhost:4173`. O build fica em `dist-google/`; o build padrão pe
 
 O botão oficial do Google abre a seleção de conta. A interface oferece cancelamento, mensagens de erro e nova tentativa; uma resposta tardia de um popup cancelado não substitui uma autenticação mais recente. O login contextual mantém o NFT ou o carrinho que abriu o formulário. Facebook fica desabilitado nesse modo, com a explicação de que o aplicativo Meta ainda não foi configurado.
 
-## Validação e dados
+### Validação e dados do servidor local
 
 `GET /api/session/google/challenge` emite um nonce e um cookie de desafio `HttpOnly`, `SameSite=Strict`, com prazo de cinco minutos. O GIS recebe esse nonce. O navegador envia `{ credential, nonce }` a `POST /api/session/google` na mesma origem.
 
@@ -54,10 +81,10 @@ O servidor persiste contas, sessões e dados do marketplace em `tmp/google-auth/
 
 ## Verificação e hospedagem
 
-A rodada de integração passou por **137 testes unitários/de rede em 16 arquivos**, lint, verificação de tipos e builds padrão/Google. A regressão do build de produção padrão concluiu **152 E2E em desktop/mobile**, antes do ajuste final de CSS exclusivo do modo Google. O [relatório dessa regressão](../reports/google-demo-regression/index.html) está incluído; os relatórios anteriores documentam a demonstração nas versões indicadas.
+A implementação hospedada passou por **160 testes unitários/de rede em 22 arquivos**, lint e verificação de tipos. `npm run test:hosted-google` concluiu **10 E2E em desktop/mobile**, e a regressão direcionada do build de produção padrão concluiu **36 E2E**, ambas com encerramento bem-sucedido. Veja os relatórios [Google hospedado](../reports/hosted-google/index.html) e [regressão padrão](../reports/hosted-google-regression/index.html). A suíte hospedada usa verificador controlado; a verificação do novo deploy e a seleção de uma conta Google externa ainda não estão confirmadas.
 
-`npm run test:google` concluiu **12 E2E em desktop/mobile**, com encerramento bem-sucedido; veja o [relatório Google](../reports/google-auth/html/index.html). Essa suíte usa um verificador controlado exclusivamente pelo servidor de testes e não autentica uma conta Google externa. O SDK oficial também foi conferido em 320, 390 e 1440 px, sem rolagem horizontal ou erros de página. A escolha de uma conta real pelo usuário permanece pendente.
+Os resultados **137 testes em 16 arquivos**, **152 E2E padrão** e **12 E2E Google local** são históricos da implementação `5fcce7a`, publicada antes desta revisão em `fd1090f`. Permanecem disponíveis o [relatório padrão](../reports/google-demo-regression/index.html) e o [relatório Google local](../reports/google-auth/html/index.html). `test:google` e `test:hosted-google` usam verificadores controlados exclusivamente pelos servidores de teste; não autenticam uma conta externa. A conferência anterior do SDK em 320, 390 e 1440 px pertence à versão local anterior.
 
-Os comandos de desenvolvimento e preview incluem a API Node e Socket.IO na mesma origem. Copiar apenas `dist-google/` para uma hospedagem estática não fornece esses serviços. Uma publicação do modo Google exige hospedar o backend Node, armazenamento privado persistente, HTTPS e configurar as origens permitidas no servidor e no Google Cloud. O preview Vite é uma ferramenta local, não uma configuração de servidor de produção. Os arquivos atuais de Vercel/Netlify atendem à demonstração estática padrão.
+O modo `google-demo` já inclui a função Vercel e não exige banco ou serviço separado. A variante persistente `google` atende API Node e Socket.IO na mesma origem; publicar apenas `dist-google/` não fornece esses serviços. Essa variante completa exige hospedar seu backend e armazenamento privado, com HTTPS e origens autorizadas. O preview Vite serve para conferência local. Uma hospedagem puramente estática pode executar a demonstração padrão; Google real no modo hospedado depende também da função `/api/google-auth` incluída no deploy Vercel.
 
 Referências: [configuração do cliente Google](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid), [validação de ID token no servidor](https://developers.google.com/identity/gsi/web/guides/verify-google-id-token) e [Facebook Login](https://developers.facebook.com/documentation/facebook-login/web).

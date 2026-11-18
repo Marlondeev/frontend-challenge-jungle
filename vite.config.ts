@@ -3,14 +3,20 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath, URL } from "node:url";
 import { googleApiPlugin } from "./server/google-api";
+import { hostedGooglePlugin } from "./server/hosted-google-plugin";
+import { defaultGoogleClientId } from "./config/google-client";
 
 export default defineConfig(({ mode }) => {
   const google = mode === "google";
+  const hosted = mode === "google-demo";
   const env = loadEnv(mode, process.cwd(), "");
+  const hostedClientId =
+    env.VITE_GOOGLE_CLIENT_ID?.trim() || defaultGoogleClientId;
   return {
     plugins: [
       react(),
       tailwindcss(),
+      ...(hosted ? [hostedGooglePlugin(hostedClientId)] : []),
       ...(google
         ? [
             googleApiPlugin({
@@ -28,16 +34,24 @@ export default defineConfig(({ mode }) => {
           ]
         : []),
     ],
+    ...(hosted
+      ? {
+          define: {
+            "import.meta.env.VITE_GOOGLE_CLIENT_ID":
+              JSON.stringify(hostedClientId),
+          },
+        }
+      : {}),
     resolve: {
       alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
     },
     server: {
       port: 5173,
-      strictPort: google,
+      strictPort: google || hosted,
       fs: {
         deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "**/tmp/**"],
       },
-      ...(google
+      ...(google || hosted
         ? {
             headers: {
               "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
@@ -48,8 +62,8 @@ export default defineConfig(({ mode }) => {
     },
     preview: {
       port: 4173,
-      strictPort: google,
-      ...(google
+      strictPort: google || hosted,
+      ...(google || hosted
         ? {
             headers: {
               "Cross-Origin-Opener-Policy": "same-origin-allow-popups",

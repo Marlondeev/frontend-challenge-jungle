@@ -2,7 +2,7 @@
 
 ## Limites da solução
 
-Kurio é uma SPA Vite/React com contratos REST tipados. A apresentação não importa fixtures: páginas usam hooks de TanStack Query e um cliente Axios. No modo padrão, MSW intercepta a rede e o banco fica no navegador. O modo opcional `google` usa a mesma camada de domínio em um servidor Node local, com REST, Socket.IO e validação de identidade Google real. Catálogo, carteiras, pagamentos e compras permanecem fictícios nos dois modos; não há conexão com blockchain.
+Kurio é uma SPA Vite/React com contratos REST tipados. A apresentação não importa fixtures: páginas usam hooks de TanStack Query e um cliente Axios. O modo padrão usa MSW e localStorage. `google-demo` verifica uma conta Google real por uma função Vercel stateless e mantém o marketplace fictício em sessionStorage. A variante opcional `google` usa o domínio em um servidor Node local com REST, Socket.IO e armazenamento privado persistente. Catálogo, carteiras, pagamentos e compras permanecem fictícios nos três modos; não há conexão com blockchain.
 
 | Diretório        | Responsabilidade                                                        |
 | ---------------- | ----------------------------------------------------------------------- |
@@ -13,6 +13,8 @@ Kurio é uma SPA Vite/React com contratos REST tipados. A apresentação não im
 | `src/components` | Layout e primitivas acessíveis com Radix/shadcn                         |
 | `src/mocks`      | Banco persistente, REST, falhas e transporte Socket.IO                  |
 | `server`         | API local do modo Google, validação de token, armazenamento e Socket.IO |
+| `api`            | Node Function Vercel para verificar identidade Google sem banco         |
+| `config`         | Client ID OAuth público compartilhado pelo build e pela função          |
 | `tests`          | Regressões de domínio, rede, jornadas e comparação visual               |
 | `public/assets`  | WebP responsivos e WOFF2 locais com licenças                            |
 
@@ -22,39 +24,40 @@ A faixa de preço usa dois controles nativos com passos de 0,01 ETH. O rascunho 
 
 ## Rede e persistência
 
-O Axios usa `/api`, timeout de 8 segundos e os cabeçalhos `X-Visitor-Id` e `Authorization: Bearer <token>`. O contrato de erro é `{ message, code, fields?, details? }`. Os handlers MSW e a API Node delegam ao mesmo domínio. No modo padrão, o cenário selecionado altera latência/resposta no handler, sem atalhos de sucesso na interface; `/api/__control` continua acessível em falhas para permitir recuperação e reset. O modo Google não expõe os endpoints de controle ou login social fictício.
+O Axios usa `/api`, timeout de 8 segundos e os cabeçalhos `X-Visitor-Id` e `Authorization: Bearer <token>`. O contrato de erro é `{ message, code, fields?, details? }`. Os handlers MSW e a API Node local delegam ao mesmo domínio. No modo padrão, o cenário selecionado altera latência/resposta no handler, sem atalhos de sucesso na interface; `/api/__control` continua acessível em falhas para permitir recuperação e reset. O servidor da variante `google` não expõe controle ou login social fictício. Em `google-demo`, MSW atende o marketplace e deixa `/api/google-auth` passar à função real antes de aplicar cenários.
 
-| Método e recurso                                                             | Comportamento                                                 |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `GET /api/nfts`, `GET /api/nfts/:id`                                         | Catálogo com filtros/paginação e detalhe                      |
-| `GET /api/session`                                                           | Sessão atual ou visitante                                     |
-| `POST /api/session/login`, `/register`, `/logout`                            | Autenticação, cadastro e encerramento                         |
-| `POST /api/session/social-demo`                                              | Sessão de perfil fictício Google/Facebook, apenas no mock     |
-| `GET /api/session/google/challenge`                                          | Desafio de nonce e cookie, apenas no servidor Google          |
-| `POST /api/session/google`                                                   | ID token Google verificado no servidor, apenas no modo Google |
-| `GET /api/cart`                                                              | Carrinho do visitante/usuário                                 |
-| `POST /api/cart/items`                                                       | Adição por NFT/edição/quantidade                              |
-| `PATCH /api/cart/items/:id`, `DELETE /api/cart/items/:id`                    | Alteração/remoção                                             |
-| `PUT /api/cart/coupon`                                                       | Aplicar ou remover cupom                                      |
-| `GET /api/favorites`, `POST /api/favorites/:id`, `DELETE /api/favorites/:id` | Favoritos privados                                            |
-| `GET /api/profile`, `PATCH /api/profile`, `PATCH /api/profile/password`      | Perfil/avatar/senha                                           |
-| `GET /api/wallets`, `POST /api/wallets`, `PATCH /api/wallets/:id`            | Carteiras privadas                                            |
-| `POST /api/quote`                                                            | Snapshot revalidado de itens e totais                         |
-| `POST /api/orders`                                                           | Criar/recuperar compra idempotente                            |
-| `GET /api/orders/:id`, `GET /api/orders/by-key/:key`                         | Consultar pedido do usuário autenticado                       |
-| `GET /api/__control`, `POST /api/__control`                                  | Cenário, reset e eventos determinísticos, apenas no mock      |
+| Método e recurso                                                             | Comportamento                                                           |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `GET /api/nfts`, `GET /api/nfts/:id`                                         | Catálogo com filtros/paginação e detalhe                                |
+| `GET /api/session`                                                           | Sessão atual ou visitante                                               |
+| `POST /api/session/login`, `/register`, `/logout`                            | Autenticação, cadastro e encerramento                                   |
+| `POST /api/session/social-demo`                                              | Sessão de perfil fictício Google/Facebook, apenas no mock               |
+| `GET /api/session/google/challenge`                                          | Desafio de nonce e cookie, apenas no servidor Google                    |
+| `POST /api/session/google`                                                   | ID token Google verificado no servidor, apenas no modo Google           |
+| `GET /api/google-auth`, `POST /api/google-auth`                              | Desafio e identidade verificada pela função sem banco, em `google-demo` |
+| `GET /api/cart`                                                              | Carrinho do visitante/usuário                                           |
+| `POST /api/cart/items`                                                       | Adição por NFT/edição/quantidade                                        |
+| `PATCH /api/cart/items/:id`, `DELETE /api/cart/items/:id`                    | Alteração/remoção                                                       |
+| `PUT /api/cart/coupon`                                                       | Aplicar ou remover cupom                                                |
+| `GET /api/favorites`, `POST /api/favorites/:id`, `DELETE /api/favorites/:id` | Favoritos privados                                                      |
+| `GET /api/profile`, `PATCH /api/profile`, `PATCH /api/profile/password`      | Perfil/avatar/senha                                                     |
+| `GET /api/wallets`, `POST /api/wallets`, `PATCH /api/wallets/:id`            | Carteiras privadas                                                      |
+| `POST /api/quote`                                                            | Snapshot revalidado de itens e totais                                   |
+| `POST /api/orders`                                                           | Criar/recuperar compra idempotente                                      |
+| `GET /api/orders/:id`, `GET /api/orders/by-key/:key`                         | Consultar pedido do usuário autenticado                                 |
+| `GET /api/__control`, `POST /api/__control`                                  | Cenário, reset e eventos determinísticos, apenas no mock                |
 
-O estado persistido contém fixtures e alterações por identidade. Senhas locais usam PBKDF2 com salt; tokens são opacos e expiram após uma hora. Na demonstração, esses registros ficam em localStorage para permitir avaliar os fluxos, sem oferecer a segurança de um serviço de autenticação. No modo Google, o banco, as credenciais locais e as sessões ficam no armazenamento privado do servidor; o navegador recebe o token da aplicação. Contas Google não possuem senha local.
+O estado contém fixtures e alterações por identidade. Senhas locais usam PBKDF2 com salt; tokens são opacos e expiram após uma hora. Na demonstração padrão, os registros ficam em localStorage; em `google-demo`, ficam em sessionStorage apenas na aba. Esses dados fictícios no cliente não constituem um backend protegido de contas ou compras. Na variante `google`, banco, credenciais locais e sessões ficam no armazenamento privado do servidor; o navegador recebe o token da aplicação. Contas Google não possuem senha local.
 
-Na demonstração, o banco `kurio.mock.v1` e o token `kurio.session` são compartilhados por abas da mesma origem. Cada operação do backend recarrega o estado completo depois de adquirir o coordenador de armazenamento, antes de consultar, liquidar pedidos ou alterar dados. A inicialização/migração e os timers de pedidos usam a mesma coordenação, preservando sessões, carrinhos, estoque, perfis e registros de idempotência gravados por outra aba. O navegador aguarda a inicialização coordenada antes de instalar os handlers MSW.
+Na demonstração padrão, o banco `kurio.mock.v1` e o token `kurio.session` são compartilhados por abas da mesma origem. Cada operação do backend recarrega o estado completo depois de adquirir o coordenador de armazenamento, antes de consultar, liquidar pedidos ou alterar dados. A inicialização/migração e os timers de pedidos usam a mesma coordenação, preservando sessões, carrinhos, estoque, perfis e registros de idempotência gravados por outra aba. O navegador aguarda a inicialização coordenada antes de instalar os handlers MSW. Em `google-demo`, cada aba independente tem seu próprio banco, token e visitante em sessionStorage.
 
-Com `navigator.locks`, as seções síncronas de leitura, validação e gravação são serializadas entre abas da origem. Sem essa API, uma fila compartilhada por adaptador coordena apenas instâncias no mesmo contexto JavaScript, como os backends de teste em memória. Recarregar os dados evita sobrescritas sequenciais por cópias antigas, mas esse fallback não garante atomicidade para gravações simultâneas em abas diferentes.
+Na demonstração padrão, `navigator.locks` serializa as seções síncronas de leitura, validação e gravação entre abas da origem. Sem essa API, uma fila compartilhada por adaptador coordena apenas instâncias no mesmo contexto JavaScript, como os backends de teste em memória. Recarregar os dados evita sobrescritas sequenciais por cópias antigas, mas esse fallback não garante atomicidade para gravações simultâneas em abas diferentes.
 
 A derivação de senha ocorre fora das seções coordenadas. Login, cadastro e troca de senha obtêm um snapshot, calculam o hash e recarregam o estado para validar e efetivar a operação: o cadastro confere novamente a unicidade, o login confere o usuário e a credencial atual, e a troca de senha revalida o token e a credencial original. A liquidação verifica o estado persistido do pedido antes de reduzir estoque; outro timer não reaplica uma conclusão já registrada. Leituras de cenário e autorização de socket não gravam dados nem consomem o carrinho social pendente. Durante eventos síncronos, essas leituras usam o estado da transação em andamento.
 
 No modo padrão, o login social é uma demonstração explícita, confirmada em diálogo antes de autenticar. O mock associa `google` a `user-collector` e `facebook` a `user-nova` por IDs estáveis; não recebe credenciais externas. A emissão de sessão e a mesclagem do carrinho usam os mesmos helpers do login por senha, que continua validando a senha. Na sessão social, o merge acontece uma única vez na primeira requisição com o token aceito; uma resposta cancelada não consome o carrinho visitante. Sessões antigas continuam compatíveis.
 
-### Modo Google
+### Servidor Google local
 
 `npm run dev:google`, `build:google` e `preview:google` selecionam o modo Vite `google`. `.env.google` define `VITE_MOCKS=false`, `VITE_DEMO_TOOLS=false` e `VITE_GOOGLE_LOGIN=real`. O Client ID público fica em `.env.google.local`, já configurado neste workspace e ignorado pelo Git; `.env.google.example` documenta o formato sem incluir o identificador usado. O fluxo não requer Client Secret. O build separado usa `dist-google/`, preservando `dist/` para a demonstração.
 
@@ -65,6 +68,20 @@ O frontend carrega o SDK oficial do Google e usa `renderButton` com popup. `GET 
 Somente o adaptador de servidor chama `backend.loginGoogle(identity, context)` depois da verificação; o dispatcher de domínio não aceita um perfil declarado pelo cliente como prova de identidade. O `sub` forma a identidade estável. O primeiro acesso rejeita conflitos de e-mail sem vincular automaticamente contas; retornos preservam perfil editado, carrinho, favoritos e carteiras. Uma nova conta Google não recebe senha ou carteira fictícia automática. O perfil explica que a senha é gerenciada pelo Google, e as APIs locais de senha recusam essa conta.
 
 A tentativa de autenticação reserva sua geração no clique do botão, antes do retorno do popup. Cancelamento, desmontagem e uma autenticação mais recente descartam respostas tardias. O servidor confere `AbortSignal` antes de efetivar a sessão dentro da transação coordenada. O carrinho visitante só é mesclado na primeira requisição autenticada com o token aceito. Facebook permanece desabilitado nesse modo porque o aplicativo Meta não foi configurado. Configuração e operação estão em [docs/social-login.md](docs/social-login.md).
+
+### Google hospedado sem banco
+
+`dev:google-demo`, `build:google-demo` e `preview:google-demo` selecionam o modo Vite `google-demo`. `.env.google-demo` mantém MSW ativo, desativa ferramentas de cenários e define `VITE_GOOGLE_LOGIN=vercel-demo`. O build usa `dist/`, assim como o build padrão: é necessário gerar a variante correspondente antes do preview. `npm run build` continua produzindo o modo puramente simulado.
+
+O Client ID público padrão está em `config/google-client.ts`, usado pelo build e por `api/google-auth.ts`. Esse identificador OAuth não é segredo. O deploy Vercel funciona sem variável de ambiente obrigatória e sem Client Secret; `VITE_GOOGLE_CLIENT_ID` pode substituir o padrão nos dois lados mediante novo deploy. O endereço informado é [frontend-challenge-jungle-delta.vercel.app](https://frontend-challenge-jungle-delta.vercel.app). Sua origem exata, `https://frontend-challenge-jungle-delta.vercel.app`, sem barra final, precisa estar autorizada no Google Cloud.
+
+`createHostedGoogleHandler` é um handler stateless compartilhado pelo plugin local e pela Node Function Vercel. `GET /api/google-auth` fornece nonce com timestamp e cookie `HttpOnly`, `SameSite=Strict`, válido por cinco minutos. `POST` exige origem correspondente ao host, cookie e nonce compatíveis e prazo válido; `createGoogleVerifier` valida assinatura, destinatário, emissor, validade, e-mail verificado e nonce do ID token. O cookie é limpo na tentativa. Não há registro durável de desafios consumidos: trata-se de proteção stateless por cookie e nonce, sem garantia de uso único persistente.
+
+A função retorna somente `{ identity }` e não grava usuários, sessões ou dados de compra. Após verificar a identidade, o frontend chama a ponte `loginVerifiedGoogleDemo`, que confere cancelamento e usa o backend MSW da aba para emitir o token fictício da aplicação. O AuthProvider conserva o controle de geração e os destinos de carrinho e favorito. O `sub` Google continua estável, sem vinculação automática por e-mail, senha local ou carteira automática. Facebook permanece desabilitado.
+
+`getClientStorage` seleciona sessionStorage nesse modo para banco, perfil, token e visitante. Atualizar a aba preserva o estado; uma aba independente ou contexto novo começa anônimo. O ID token Google não é armazenado. A identidade é real, enquanto o marketplace e sua sessão são uma demonstração editável no cliente, sem API protegida de contas ou compras. Não há banco ou serviço adicional de hospedagem.
+
+`vercel.json` usa `npm run build:google-demo`, publica `dist/` e exclui `/api/*` do fallback SPA para que a função seja executada. Headers COOP `same-origin-allow-popups` e `Referrer-Policy` permitem o popup do GIS. O plugin local oferece o mesmo handler nas portas 5173/4173; os testes dedicados usam um verificador injetado apenas no fixture, porta 5175 e MSW real para as operações fictícias.
 
 ## Sessão e cache
 
@@ -80,11 +97,11 @@ O cenário persistido `expired-session` invalida os tokens usados nas operaçõe
 
 ## Transporte em tempo real
 
-No modo padrão, o cliente `socket.io-client` conecta a `https://realtime.kurio.test` por WebSocket. MSW intercepta o endereço e `@mswjs/socket.io-binding` adapta handshake e frames ao protocolo Socket.IO; nenhum servidor externo recebe essa conexão. A versão 0.2.0 do binding precisa de heartbeat explícito no mock. O módulo do cliente é importado depois de instalar a interceptação, porque o Engine.IO captura o construtor WebSocket na inicialização. No modo Google, o cliente conecta à origem atual e o processo Node atende o Socket.IO real, validando o token no handshake e antes de enviar cada evento privado de pedido; o logout desconecta os sockets daquele token.
+Nos modos padrão e `google-demo`, o cliente `socket.io-client` conecta a `https://realtime.kurio.test` por WebSocket. MSW intercepta o endereço e `@mswjs/socket.io-binding` adapta handshake e frames ao protocolo Socket.IO; nenhum servidor externo recebe essa conexão. A versão 0.2.0 do binding precisa de heartbeat explícito no mock. O módulo do cliente é importado depois de instalar a interceptação, porque o Engine.IO captura o construtor WebSocket na inicialização. Na variante local `google`, o cliente conecta à origem atual e o processo Node atende o Socket.IO real, validando o token no handshake e antes de enviar cada evento privado de pedido; o logout desconecta os sockets daquele token.
 
 Os eventos `nft.updated` e `order.updated` usam `{ eventId, resourceId, version, payload }`. `VersionGate` compara a versão com REST/cache e com o último evento aceito, mantém um histórico limitado de identificadores e protege estados terminais de pedidos. Atualizações de NFT reconciliam catálogo, detalhe, carrinho e cotação. Atualizações privadas verificam a identidade no mock e no cliente. Após reconexão, recursos ativos são invalidados e consultados por REST; a assinatura anterior é removida na troca de identidade. Pedidos pendentes também têm consulta de recuperação periódica.
 
-O transporte usa WebSocket e não cobre fallback por polling, anexos binários ou infraestrutura distribuída Socket.IO. Na demonstração, as assinaturas e a entrega de eventos pertencem a cada instância da aplicação; alterações feitas por outra aba são lidas nas consultas REST seguintes, sem transmissão de eventos entre abas. No modo Google, o processo Node compartilha o banco e transmite eventos aos clientes conectados, com autorização por identidade para os pedidos.
+O transporte usa WebSocket e não cobre fallback por polling, anexos binários ou infraestrutura distribuída Socket.IO. Nos modos com MSW, assinaturas e eventos pertencem a cada instância; o modo padrão reconcilia dados compartilhados por REST, e `google-demo` mantém dados independentes por aba. Na variante local `google`, o processo Node compartilha o banco e transmite eventos aos clientes conectados, com autorização por identidade para os pedidos.
 
 ## Compra e precisão
 
@@ -124,9 +141,9 @@ O favorito dos detalhes usa um `AuthDialog` sobre a instância atual do NFT, man
 
 ## Evidências e publicação
 
-A rodada de integração do modo Google passou por **137 testes unitários/de rede em 16 arquivos**, lint, verificação de tipos e builds padrão/Google. A regressão completa do build de produção padrão concluiu **152 E2E em desktop/mobile**, antes do ajuste final de CSS exclusivo do modo Google; veja o [relatório da regressão](reports/google-demo-regression/index.html).
+A implementação hospedada passou por **160 testes unitários/de rede em 22 arquivos**, lint e verificação de tipos. A suíte hospedada concluiu **10 E2E em desktop/mobile** e a regressão direcionada do build de produção padrão concluiu **36 E2E**, ambas com encerramento bem-sucedido. Os relatórios [Google hospedado](reports/hosted-google/index.html) e [regressão padrão](reports/hosted-google-regression/index.html) registram essas rodadas. A suíte hospedada usa verificador Google controlado. A verificação do novo deploy e a escolha de uma conta Google externa no domínio informado ainda não estão confirmadas.
 
-A suíte específica Google concluiu **12 E2E em desktop/mobile**, com encerramento bem-sucedido; veja o [relatório Google](reports/google-auth/html/index.html). `npm run test:google` usa um servidor de testes isolado com verificador controlado e não comprova autenticação ao vivo no Google. A apresentação do SDK oficial foi conferida em 320, 390 e 1440 px, sem rolagem horizontal ou erros de página. A escolha de uma conta externa real pelo usuário permanece pendente. Os demais resultados abaixo são históricos da demonstração nas versões indicadas.
+Os resultados **137 testes em 16 arquivos**, **152 E2E padrão** e **12 E2E Google local** são históricos da implementação `5fcce7a`, publicada antes desta revisão em `fd1090f`. Permanecem disponíveis o [relatório padrão](reports/google-demo-regression/index.html) e o [relatório Google local](reports/google-auth/html/index.html). Os testes Google usam verificadores controlados e não comprovam login externo ao vivo. A conferência anterior do SDK em 320, 390 e 1440 px pertence à versão local anterior. Os demais resultados abaixo são históricos das versões indicadas.
 
 O fechamento automático do painel mobile passou por **34 E2E direcionados**, em desktop/mobile e build de produção, com zero falhas, retries, casos instáveis ou skips, além de lint e build. O [relatório dos filtros](reports/filter-review/index.html) inclui oito casos novos de coleção, rede, ordenação e preço, combinados com as regressões de catálogo, limpeza, histórico, seletor nativo e posição da página. O callback de aplicação e fechamento é usado apenas dentro do diálogo; a barra de ordenação e os filtros laterais conservam o fluxo direto. Os sliders de preço mantêm o rascunho local até o envio do formulário por **Aplicar**.
 
@@ -159,6 +176,6 @@ Foram corrigidas causas verificadas: margens do skeleton que colapsavam pelo `ma
 
 No mobile, o conteúdo principal reserva ao menos `100svh`, acompanhando o cabeçalho oculto e as ações específicas de cada tela. As métricas Lighthouse acima continuam sendo da versão inicial; a revisão visual mobile não foi submetida a uma nova auditoria de performance.
 
-A demonstração padrão pode ser hospedada como build estático. O host precisa de HTTPS, `mockServiceWorker.js` na mesma origem e fallback SPA para acesso direto a `/nft/:id`, `/account` e `/order/:id`; as configurações Vercel/Netlify incluídas atendem a esse modo. O modo Google exige hospedar também o backend Node e Socket.IO, com armazenamento privado persistente, HTTPS e origens autorizadas no servidor e no Google Cloud. Publicar apenas `dist-google/` não fornece autenticação. O preview Vite serve para conferência local e não configura um servidor de produção. Nenhum segredo é necessário no frontend. O acervo de design, estados do navegador e arquivos temporários ficam fora do pacote publicado.
+A demonstração padrão pode ser hospedada como build estático com HTTPS, `mockServiceWorker.js` na mesma origem e fallback SPA. A configuração Vercel atual publica `google-demo` com a função de verificação incluída, sem banco ou hospedagem adicional. A variante persistente `google` continua exigindo seu backend Node, Socket.IO e armazenamento privado; publicar apenas `dist-google/` não fornece esses serviços. O preview Vite serve para conferência local. Nenhum segredo é necessário no frontend. O acervo de design, estados do navegador e arquivos temporários ficam fora do pacote publicado.
 
-O código e os relatórios são disponibilizados no repositório público [Marlondeev/frontend-challenge-jungle](https://github.com/Marlondeev/frontend-challenge-jungle). A configuração Vercel usa Node.js 24, `npm ci`, `npm run build`, saída `dist/` e fallback SPA para o modo de demonstração. O deploy da aplicação e a entrega ao recrutador ainda devem ser realizados pelo candidato; o envio do repositório não publica uma URL da aplicação.
+O código e os relatórios são disponibilizados no repositório público [Marlondeev/frontend-challenge-jungle](https://github.com/Marlondeev/frontend-challenge-jungle). A configuração Vercel usa Node.js 24, `npm ci`, `npm run build:google-demo`, saída `dist/`, função `/api/google-auth` e fallback SPA. O Client ID público já está incluído; após obter a URL, o candidato precisa autorizar a origem no Google Cloud. Deploy e entrega ao recrutador permanecem a cargo do candidato; enviar o repositório não publica uma URL da aplicação.

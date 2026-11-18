@@ -17,6 +17,8 @@
   "include": [
     "src",
     "server",
+    "api",
+    "config",
     "tests",
     "vite.config.ts",
     "playwright.config.ts"
