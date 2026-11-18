@@ -44,7 +44,11 @@ export function CartPage() {
   }
   return (
     <div className="purchase-page cart-page">
-      <PageHeading title="Carrinho de NFTs" />
+      <PageHeading
+        title="Carrinho de NFTs"
+        backHash="mercado"
+        backLabel="Continuar explorando"
+      />
       {cart.isPending ? (
         <CartSkeleton />
       ) : cart.isError ? (

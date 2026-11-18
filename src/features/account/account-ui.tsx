@@ -84,21 +84,27 @@ export function PasswordField({
 export function PageHeading({
   title,
   back = "/",
+  backHash,
+  backLabel = "Voltar",
 }: {
   title: string;
   back?: string;
+  backHash?: string;
+  backLabel?: string;
 }) {
   return (
     <>
       <nav className="account-breadcrumb" aria-label="Caminho">
         <Link to="/">Início</Link>
         <span>/</span>
-        <Link to="/" hash="mercado">Mercado</Link>
+        <Link to="/" hash="mercado">
+          Mercado
+        </Link>
         <span>/</span>
         <span>{title}</span>
       </nav>
       <div className="purchase-mobile-heading">
-        <Link to={back} aria-label="Voltar">
+        <Link to={back} hash={backHash} aria-label={backLabel}>
           <ChevronLeft />
         </Link>
         <h1>{title}</h1>
